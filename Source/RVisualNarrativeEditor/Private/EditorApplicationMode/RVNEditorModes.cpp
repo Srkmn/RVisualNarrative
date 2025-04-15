@@ -11,6 +11,7 @@
 
 const FName FRVNEditorApplicationModes::RVNEditorDialogueMode("RVNEditorDialogueMode");
 const FName FRVNEditorApplicationModes::RVNEditorEventMode("RVNEditorEventMode");
+const FName FRVNEditorApplicationModes::RVNEditorBlackboardMode("RVNEditorBlackboardMode");
 
 FRVNDialogueMode::FRVNDialogueMode(TSharedPtr<FRVNEditor> InEditor)
 	: FApplicationMode(FRVNEditorApplicationModes::RVNEditorDialogueMode, FRVNEditorApplicationModes::GetLocalizedMode),
@@ -19,6 +20,8 @@ FRVNDialogueMode::FRVNDialogueMode(TSharedPtr<FRVNEditor> InEditor)
 	RVNDialogueTabFactories.RegisterFactory(MakeShared<FDialogueNodeListSummoner>(RVNEditor.Pin()));
 
 	RVNDialogueTabFactories.RegisterFactory(MakeShared<FRVNDialogueDetailsSummoner>(RVNEditor.Pin()));
+
+	RVNDialogueTabFactories.RegisterFactory(MakeShared<FRVNBlackboardViewerSummoner>(RVNEditor.Pin()));
 
 	TabLayout = FTabManager::NewLayout("RVNEditor_DialogueMode_Layout")
 		->AddArea
@@ -45,16 +48,32 @@ FRVNDialogueMode::FRVNDialogueMode(TSharedPtr<FRVNEditor> InEditor)
 
 				                                                       ->Split
 				                                                       (
-					                                                       FTabManager::NewStack()
+					                                                       FTabManager::NewSplitter()->SetOrientation(
+						                                                       Orient_Vertical)
 					                                                       ->SetSizeCoefficient(0.25f)
-					                                                       ->AddTab(
-						                                                       FRVNEditorTabsID::DialogueNodeDetails,
-						                                                       ETabState::OpenedTab)
+					                                                       ->Split
+					                                                       (
+						                                                       FTabManager::NewStack()
+						                                                       ->SetSizeCoefficient(0.6f)
+						                                                       ->AddTab
+						                                                       (
+							                                                       FRVNEditorTabsID::DialogueNodeDetails,
+							                                                       ETabState::OpenedTab
+						                                                       )
+					                                                       )
+					                                                       ->Split(
+						                                                       FTabManager::NewStack()
+						                                                       ->SetSizeCoefficient(0.4f)
+						                                                       ->AddTab
+						                                                       (
+							                                                       FRVNEditorTabsID::BlackboardViewer,
+							                                                       ETabState::OpenedTab
+						                                                       )
+					                                                       )
 				                                                       )
 			                             )
 		);
 
-	// Not handing over ToolbarExpander to Editor is to keep control in Mode, not Editor.
 	RVNEditor.Pin()->GetRVNToolbarBuilder()->FillDialogueToolbar(*ToolbarExtender);
 
 	if (UToolMenu* Toolbar = RVNEditor.Pin()->RegisterModeToolbarIfUnregistered(GetModeName()))
@@ -230,6 +249,68 @@ void FRVNEventMode::PostActivateMode()
 	RVNEditorPtr->SetupViewForBlueprintEditingMode();
 
 	RVNEditorPtr->RestoreEventMode();
+
+	FApplicationMode::PostActivateMode();
+}
+
+FRVNBlackboardEditorApplicationMode::FRVNBlackboardEditorApplicationMode(TSharedPtr<FRVNEditor> InEditor):
+	FApplicationMode(FRVNEditorApplicationModes::RVNEditorBlackboardMode, FRVNEditorApplicationModes::GetLocalizedMode),
+	RVNEditor(InEditor)
+{
+	BlackboardTabFactories.RegisterFactory(MakeShared<FRVNBlackboardEditorSummoner>(RVNEditor.Pin()));
+	BlackboardTabFactories.RegisterFactory(MakeShared<FRVNBlackboardDetailsSummoner>(RVNEditor.Pin()));
+
+	TabLayout = FTabManager::NewLayout("RVNEditor_BlackboardMode_Layout")
+		->AddArea
+		(
+			FTabManager::NewPrimaryArea()->SetOrientation(Orient_Vertical)
+			                             ->Split
+			                             (
+				                             FTabManager::NewSplitter()->SetOrientation(Orient_Horizontal)
+				                                                       ->Split
+				                                                       (
+					                                                       FTabManager::NewStack()
+					                                                       ->AddTab(FRVNEditorTabsID::BlackboardEditor,
+						                                                       ETabState::OpenedTab)
+				                                                       )
+				                                                       ->Split
+				                                                       (
+					                                                       FTabManager::NewStack()
+					                                                       ->AddTab(FRVNEditorTabsID::BlackboardDetails,
+						                                                       ETabState::OpenedTab)
+				                                                       )
+			                             )
+		);
+
+	RVNEditor.Pin()->GetRVNToolbarBuilder()->FillBlackboardToolbar(*ToolbarExtender);
+}
+
+void FRVNBlackboardEditorApplicationMode::RegisterTabFactories(TSharedPtr<FTabManager> InTabManager)
+{
+	if (!RVNEditor.IsValid())
+	{
+		return;
+	}
+
+	const auto RVNEditorPtr = RVNEditor.Pin();
+
+	RVNEditorPtr->RegisterToolbarTab(InTabManager.ToSharedRef());
+
+	RVNEditorPtr->PushTabFactories(BlackboardTabFactories);
+
+	FApplicationMode::RegisterTabFactories(InTabManager);
+}
+
+void FRVNBlackboardEditorApplicationMode::PostActivateMode()
+{
+	if (!RVNEditor.IsValid())
+	{
+		return;
+	}
+
+	const auto RVNEditorPtr = RVNEditor.Pin();
+
+	RVNEditorPtr->RestoreBlackboardMode();
 
 	FApplicationMode::PostActivateMode();
 }

@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class FCrossVersionModule : public IModuleInterface
+class FRVisualNarrativeCrossVersionModule : public IModuleInterface
 {
 public:
 	virtual void StartupModule() override;

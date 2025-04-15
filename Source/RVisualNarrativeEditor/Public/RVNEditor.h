@@ -1,10 +1,13 @@
 ﻿#pragma once
 
 #include "BlueprintEditor.h"
-#include "RVNAssetBlueprint.h"
-#include "RVNComponent.h"
 #include "WorkflowOrientedApp/WorkflowTabManager.h"
+#include "Blueprint/RVNAssetBlueprint.h"
+#include "RVNComponent.h"
 
+struct FRVNBlackboardEntry;
+class SRVNBlackboardEditor;
+class SRVNBlackboardView;
 class URVNComponent;
 class URVNAssetBlueprint;
 class FDocumentTracker;
@@ -22,20 +25,22 @@ public:
 	virtual void RegisterTabSpawners(const TSharedRef<FTabManager>& InTabManager) override;
 
 	void InitRVNEditor(const EToolkitMode::Type Mode, const TSharedPtr<IToolkitHost>& InitToolkitHost,
-	                   URVNAssetBlueprint* InBlueprint);
+	                   UBlueprint* InBlueprint);
 
 	void RegisterToolbarTab(const TSharedRef<FTabManager>& InTabManager);
 
 	void RestoreRVNEditor();
-
 	void RestoreEventMode();
+	void RestoreBlackboardMode();
+
+	void BindCommonCommands();
 
 	void CreateDialogueGraph();
-
 	void CreateEventGraph();
-
 	void CreateGraphCommandList();
 
+	void CreateNewBlackboard();
+	bool CanCreateNewBlackboard() const;
 	void DeleteSelectedNodesDG();
 	void CopySelectedNodesDG();
 	void CutSelectedNodesDG();
@@ -55,31 +60,33 @@ public:
 
 	void SaveEditedObjectState();
 
-	// 模式访问检查函数  
 	bool CanAccessDialogueMode() const;
 	bool CanAccessEventMode() const;
+	bool CanAccessBlackboardMode() const;
 
-	// Delegate
 	void OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor);
 	void OnSelectedNodesChanged(const TSet<UObject*>& NewSelection);
 	void OnNodeDoubleClicked(UEdGraphNode* Node);
 
 public:
-	FORCEINLINE URVNComponent* GetRVNComponent() const;
-
-	FORCEINLINE URVNAssetBlueprint* GetRVNEditorBlueprint() const;
-
-	FORCEINLINE URVNDialogueGraph* GetRVNDialogueGraph() const;
-
-	FORCEINLINE TSharedPtr<FRVNEditorToolbarBuilder> GetRVNToolbarBuilder();
-
-	FORCEINLINE TSharedPtr<FDocumentTracker> GetDocumentManager();
+	URVNComponent* GetRVNComponent();
+	URVNAssetBlueprint* GetRVNEditorBlueprint();
+	URVNDialogueGraph* GetRVNDialogueGraph();
+	TSharedPtr<FRVNEditorToolbarBuilder> GetRVNToolbarBuilder();
+	TSharedPtr<FDocumentTracker> GetDocumentManager();
+	URVNBlackboardData* GetBlackboardData();
 
 	TSharedRef<SWidget> SpawnDetailsView();
-
 	TSharedRef<SWidget> SpawnNodeListView();
-
 	TSharedRef<SGraphEditor> CreateRVNGraphEditorWidget(UEdGraph* InGraph);
+	TSharedRef<SWidget> SpawnBlackboardView();
+	TSharedRef<SWidget> SpawnBlackboardEditor();
+	TSharedRef<SWidget> SpawnBlackboardDetails();
+
+	void HandleBlackboardEntrySelected(const FRVNBlackboardEntry* BlackboardEntry, bool bIsInherited);
+	void HandleBlackboardKeyChanged(URVNBlackboardData* InBlackboardData, FRVNBlackboardEntry* const InKey);
+	bool HandleIsBlackboardModeActive() const;
+	int32 HandleGetSelectedBlackboardItemIndex(bool& bOutIsInherited);
 
 protected:
 	virtual void Compile() override;
@@ -92,16 +99,23 @@ protected:
 
 	virtual FLinearColor GetWorldCentricTabColorScale() const override;
 
+	virtual void SaveAsset_Execute() override;
+
 private:
 	void CreateInternalWidgets();
 
 	void RefreshRVNEditor(bool bNewlyCreated);
+
+	void ClearDetailsView();
 
 public:
 	TSharedPtr<SGraphEditor> GraphEditor;
 	TSharedPtr<FUICommandList> GraphEditorCommandsRef;
 	TSharedPtr<IDetailsView> DetailsView;
 	TSharedPtr<SRVNNodeList> NodeListView;
+	TSharedPtr<IDetailsView> BlackboardDetailsView;
+	TSharedPtr<SRVNBlackboardView> BlackboardView;
+	TSharedPtr<SRVNBlackboardEditor> BlackboardEditor;
 
 private:
 	TSharedPtr<FDocumentTracker> DocumentManager;
@@ -110,4 +124,6 @@ private:
 
 	TObjectPtr<UEdGraph> DialogueGraphPtr;
 	TObjectPtr<UEdGraph> EventGraphPtr;
+
+	TObjectPtr<URVNBlackboardData> BlackboardData;
 };

@@ -19,9 +19,12 @@ URVNDialogueManager* URVNComponent::GetDialogueManager()
 		DialogueManager->Initialize(this);
 	}
 
-	DialogueManager->OnDialogueCompleted.AddDynamic(this, &URVNComponent::OnDialogueComplete);
-
 	return DialogueManager.Get();
+}
+
+URVNBlackboardData* URVNComponent::GetBlackboardAsset() const
+{
+	return BlackboardData;
 }
 
 bool URVNComponent::GetNodeData(int32 NodeId, FRVNNodeData& OutNode)
@@ -37,6 +40,28 @@ bool URVNComponent::GetNodeData(int32 NodeId, FRVNNodeData& OutNode)
 	return true;
 }
 
+void URVNComponent::OnDialogueComplete()
+{
+	DialogueManager = nullptr;
+}
+
+#if WITH_EDITOR
+void URVNComponent::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	static const FName NAME_BlackboardData = GET_MEMBER_NAME_CHECKED(URVNComponent, BlackboardData);
+
+	if (PropertyChangedEvent.Property)
+	{
+		if (PropertyChangedEvent.Property->GetFName() == NAME_BlackboardData)
+		{
+			OnBlackboardDataChanged.ExecuteIfBound(BlackboardData);
+		}
+	}
+}
+#endif
+
 bool URVNComponent::GetNodeIndex(int32 NodeId, int32& OutIndex) const
 {
 	const int32* IndexPtr = NodeIdToIndex.Find(NodeId);
@@ -47,11 +72,6 @@ bool URVNComponent::GetNodeIndex(int32 NodeId, int32& OutIndex) const
 
 	OutIndex = *IndexPtr;
 	return true;
-}
-
-void URVNComponent::OnDialogueComplete()
-{
-	DialogueManager = nullptr;
 }
 
 #if WITH_EDITOR

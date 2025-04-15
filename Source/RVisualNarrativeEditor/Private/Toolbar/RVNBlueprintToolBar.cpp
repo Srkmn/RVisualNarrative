@@ -1,7 +1,7 @@
 ﻿#include "Toolbar/RVNBlueprintToolBar.h"
 #include "BlueprintEditorModule.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "RVNAssetBlueprint.h"
+#include "Blueprint/RVNAssetBlueprint.h"
 #include "RVNComponent.h"
 #include "RVNEditorCommands.h"
 

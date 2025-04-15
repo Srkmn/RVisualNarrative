@@ -1,7 +1,13 @@
 ﻿#include "RVNEditor.h"
+
+#include "AssetToolsModule.h"
 #include "EdGraphUtilities.h"
-#include "RVNAssetBlueprint.h"
+#include "PackageTools.h"
+#include "RVNBlackboardData.h"
+#include "RVNBlackboardDataFactory.h"
+#include "Blueprint/RVNAssetBlueprint.h"
 #include "RVNComponent.h"
+#include "RVNEditorCommands.h"
 #include "SBlueprintEditorToolbar.h"
 #include "SGraphPanel.h"
 #include "SNodePanel.h"
@@ -20,6 +26,9 @@
 #include "WorkflowOrientedApp/WorkflowTabManager.h"
 #include "WorkflowOrientedApp/WorkflowUObjectDocuments.h"
 #include "UEVersion.h"
+#include "DetailCustomizations/RVNBlackboardDetails.h"
+#include "Tab/Slate/SRVNBlackboardEditor.h"
+#include "Tab/Slate/SRVNBlackboardView.h"
 
 #if UE_G_EDITOR_TRANS
 #include "Editor/Transactor.h"
@@ -33,11 +42,13 @@ FRVNEditor::FRVNEditor()
 
 void FRVNEditor::RegisterTabSpawners(const TSharedRef<FTabManager>& InTabManager)
 {
+	DocumentManager->SetTabManager(TabManager.ToSharedRef());
+
 	FBlueprintEditor::RegisterTabSpawners(InTabManager);
 }
 
 void FRVNEditor::InitRVNEditor(const EToolkitMode::Type Mode, const TSharedPtr<IToolkitHost>& InitToolkitHost,
-                               URVNAssetBlueprint* InBlueprint)
+                               UBlueprint* InBlueprint)
 {
 	check(InBlueprint)
 
@@ -88,8 +99,7 @@ void FRVNEditor::InitRVNEditor(const EToolkitMode::Type Mode, const TSharedPtr<I
 	                bCreateDefaultStandaloneMenu,
 	                bCreateDefaultToolbar, InBlueprint);
 
-
-	DocumentManager->SetTabManager(TabManager.ToSharedRef());
+	BindCommonCommands();
 
 	TArray<UBlueprint*> CastedArray{InBlueprint};
 
@@ -112,30 +122,36 @@ void FRVNEditor::InitRVNEditor(const EToolkitMode::Type Mode, const TSharedPtr<I
 		CreateEventGraph();
 	}
 
-	DialogueGraphPtr = GetRVNEditorBlueprint()->DialogueGraphPtr;
-
-	EventGraphPtr = GetRVNEditorBlueprint()->EventGraphPtr;
-
-	Cast<URVNDialogueGraph>(DialogueGraphPtr)->RVNCompPtr = GetRVNComponent();
-
-	Cast<URVNDialogueGraph>(DialogueGraphPtr)->RVNEditorPtr = SharedThis(this);
-
-	if (bNewlyCreated)
 	{
-		DialogueGraphPtr->GetSchema()->CreateDefaultNodesForGraph(
-			*GetRVNEditorBlueprint()->DialogueGraphPtr);
+		BlackboardData = GetRVNComponent()->BlackboardData;
 
-		EventGraphPtr->GetSchema()->CreateDefaultNodesForGraph(
-			*GetRVNEditorBlueprint()->EventGraphPtr);
+		DialogueGraphPtr = GetRVNEditorBlueprint()->DialogueGraphPtr;
+
+		EventGraphPtr = GetRVNEditorBlueprint()->EventGraphPtr;
+
+		GetRVNDialogueGraph()->RVNEditorPtr = SharedThis(this);
+
+		CreateInternalWidgets();
+
+		GetRVNComponent()->OnBlackboardDataChanged.BindLambda([this](URVNBlackboardData* NewData)
+		{
+			BlackboardData = NewData;
+
+			if (BlackboardEditor.IsValid())
+			{
+				BlackboardEditor->HandleGraphActionChanged(BlackboardData);
+			}
+		});
+
+		AddApplicationMode(FRVNEditorApplicationModes::RVNEditorDialogueMode,
+		                   MakeShared<FRVNDialogueMode>(SharedThis(this)));
+
+		AddApplicationMode(FRVNEditorApplicationModes::RVNEditorEventMode,
+		                   MakeShared<FRVNEventMode>(SharedThis(this)));
+
+		AddApplicationMode(FRVNEditorApplicationModes::RVNEditorBlackboardMode,
+		                   MakeShared<FRVNBlackboardEditorApplicationMode>(SharedThis(this)));
 	}
-
-	CreateInternalWidgets();
-
-	AddApplicationMode(FRVNEditorApplicationModes::RVNEditorDialogueMode,
-	                   MakeShared<FRVNDialogueMode>(SharedThis(this)));
-
-	AddApplicationMode(FRVNEditorApplicationModes::RVNEditorEventMode,
-	                   MakeShared<FRVNEventMode>(SharedThis(this)));
 
 	SetCurrentMode(FRVNEditorApplicationModes::RVNEditorDialogueMode);
 }
@@ -147,7 +163,7 @@ void FRVNEditor::RegisterToolbarTab(const TSharedRef<FTabManager>& InTabManager)
 
 void FRVNEditor::RestoreRVNEditor()
 {
-	check(GetRVNEditorBlueprint());
+	DetailsView->SetObject(GetRVNComponent());
 
 	if (GetRVNEditorBlueprint()->DialogueGraphPtr == nullptr)
 	{
@@ -159,14 +175,32 @@ void FRVNEditor::RestoreRVNEditor()
 
 void FRVNEditor::RestoreEventMode()
 {
-	check(GetRVNEditorBlueprint());
-
-	const auto bIsNewlyCreated = GetRVNEditorBlueprint()->EventGraphPtr == nullptr;
+	ClearDetailsView();
 
 	if (GetRVNEditorBlueprint()->EventGraphPtr == nullptr)
 	{
 		CreateEventGraph();
 	}
+}
+
+void FRVNEditor::RestoreBlackboardMode()
+{
+	if (BlackboardData == nullptr)
+	{
+		return;
+	}
+
+	BlackboardDetailsView->SetObject(BlackboardData);
+
+	BlackboardEditor->HandleGraphActionChanged(BlackboardData);
+}
+
+void FRVNEditor::BindCommonCommands()
+{
+	ToolkitCommands->MapAction(FRVNEditorCommands::Get().NewBlackboard,
+	                           FExecuteAction::CreateSP(this, &FRVNEditor::CreateNewBlackboard),
+	                           FCanExecuteAction::CreateSP(this, &FRVNEditor::CanCreateNewBlackboard)
+	);
 }
 
 void FRVNEditor::CreateDialogueGraph()
@@ -182,6 +216,11 @@ void FRVNEditor::CreateDialogueGraph()
 		DocumentName,
 		URVNDialogueGraph::StaticClass(),
 		URVNDialogueGraphSchema::StaticClass());
+
+	GetRVNDialogueGraph()->RVNCompPtr = GetRVNComponent();
+
+	GetRVNDialogueGraph()->GetSchema()->CreateDefaultNodesForGraph(
+		*GetRVNEditorBlueprint()->DialogueGraphPtr);
 }
 
 void FRVNEditor::CreateEventGraph()
@@ -202,6 +241,9 @@ void FRVNEditor::CreateEventGraph()
 
 	GetRVNEditorBlueprint()->EventGraphPtr->bAllowDeletion = false;
 	GetRVNEditorBlueprint()->EventGraphPtr->bAllowRenaming = false;
+
+	GetRVNEditorBlueprint()->EventGraphPtr->GetSchema()->CreateDefaultNodesForGraph(
+		*GetRVNEditorBlueprint()->EventGraphPtr);
 }
 
 void FRVNEditor::CreateGraphCommandList()
@@ -210,6 +252,11 @@ void FRVNEditor::CreateGraphCommandList()
 
 	GraphEditorCommandsRef = MakeShareable(new FUICommandList);
 	{
+		GraphEditorCommandsRef->MapAction(FRVNEditorCommands::Get().NewBlackboard,
+		                                  FExecuteAction::CreateSP(this, &FRVNEditor::CreateNewBlackboard),
+		                                  FCanExecuteAction::CreateSP(this, &FRVNEditor::CanCreateNewBlackboard)
+		);
+
 		GraphEditorCommandsRef->MapAction(FRVNGraphEditorCommands::Get().Delete,
 		                                  FExecuteAction::CreateSP(this, &FRVNEditor::DeleteSelectedNodesDG),
 		                                  FCanExecuteAction::CreateSP(this, &FRVNEditor::CanDeleteNodesDG)
@@ -235,6 +282,39 @@ void FRVNEditor::CreateGraphCommandList()
 		                                  FCanExecuteAction::CreateSP(this, &FRVNEditor::CanDuplicateNodesDG)
 		);
 	}
+}
+
+void FRVNEditor::CreateNewBlackboard()
+{
+	FString PathName = GetRVNComponent()->GetOutermost()->GetPathName();
+	PathName = FPaths::GetPath(PathName);
+	const FString PathNameWithFilename = PathName / LOCTEXT("NewBlackboardName", "NewBlackboardData").ToString();
+
+	FString Name;
+	FString PackageName;
+	auto& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
+	AssetToolsModule.Get().CreateUniqueAssetName(PathNameWithFilename, TEXT(""), PackageName, Name);
+
+	auto Factory = NewObject<URVNBlackboardDataFactory>();
+
+	auto NewAsset = Cast<URVNBlackboardData>(
+		AssetToolsModule.Get().CreateAssetWithDialog(Name, PathName, URVNBlackboardData::StaticClass(), Factory));
+
+	if (BlackboardData == nullptr && GetRVNComponent()->BlackboardData == nullptr)
+	{
+		GetRVNComponent()->BlackboardData = NewAsset;
+
+		BlackboardData = NewAsset;
+
+		BlackboardView->SetObject(BlackboardData);
+
+		BlackboardEditor->SetObject(BlackboardData);
+	}
+}
+
+bool FRVNEditor::CanCreateNewBlackboard() const
+{
+	return true;
 }
 
 void FRVNEditor::DeleteSelectedNodesDG()
@@ -557,6 +637,11 @@ bool FRVNEditor::CanAccessEventMode() const
 	return true;
 }
 
+bool FRVNEditor::CanAccessBlackboardMode() const
+{
+	return BlackboardData != nullptr;
+}
+
 void FRVNEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor)
 {
 	FBlueprintEditor::OnGraphEditorFocused(InGraphEditor);
@@ -578,18 +663,23 @@ void FRVNEditor::OnNodeDoubleClicked(UEdGraphNode* Node)
 	}
 }
 
-URVNComponent* FRVNEditor::GetRVNComponent() const
+URVNComponent* FRVNEditor::GetRVNComponent()
 {
 	return Cast<URVNComponent>(GetRVNEditorBlueprint()->GeneratedClass->ClassDefaultObject);
 }
 
-URVNAssetBlueprint* FRVNEditor::GetRVNEditorBlueprint() const
+URVNAssetBlueprint* FRVNEditor::GetRVNEditorBlueprint()
 {
 	return Cast<URVNAssetBlueprint>(GetBlueprintObj());
 }
 
-URVNDialogueGraph* FRVNEditor::GetRVNDialogueGraph() const
+URVNDialogueGraph* FRVNEditor::GetRVNDialogueGraph()
 {
+	if (DialogueGraphPtr == nullptr)
+	{
+		DialogueGraphPtr = GetRVNEditorBlueprint()->DialogueGraphPtr;
+	}
+
 	return Cast<URVNDialogueGraph>(DialogueGraphPtr.Get());
 }
 
@@ -601,6 +691,11 @@ TSharedPtr<FRVNEditorToolbarBuilder> FRVNEditor::GetRVNToolbarBuilder()
 TSharedPtr<FDocumentTracker> FRVNEditor::GetDocumentManager()
 {
 	return DocumentManager;
+}
+
+URVNBlackboardData* FRVNEditor::GetBlackboardData()
+{
+	return BlackboardData;
 }
 
 TSharedRef<SWidget> FRVNEditor::SpawnDetailsView()
@@ -638,6 +733,18 @@ FString FRVNEditor::GetWorldCentricTabPrefix() const
 FLinearColor FRVNEditor::GetWorldCentricTabColorScale() const
 {
 	return FLinearColor(0.3f, 0.7f, 0.5f, 1.0f);
+}
+
+void FRVNEditor::SaveAsset_Execute()
+{
+	FBlueprintEditor::SaveAsset_Execute();
+
+	if (HandleIsBlackboardModeActive())
+	{
+		const TArray SaveObj = {Cast<UObject>(BlackboardData)};
+
+		UPackageTools::SavePackagesForObjects(SaveObj);
+	}
 }
 
 TSharedRef<SGraphEditor> FRVNEditor::CreateRVNGraphEditorWidget(UEdGraph* InGraph)
@@ -685,6 +792,62 @@ TSharedRef<SGraphEditor> FRVNEditor::CreateRVNGraphEditorWidget(UEdGraph* InGrap
 	return LocGraphEditor;
 }
 
+TSharedRef<SWidget> FRVNEditor::SpawnBlackboardView()
+{
+	return BlackboardView.ToSharedRef();
+}
+
+TSharedRef<SWidget> FRVNEditor::SpawnBlackboardEditor()
+{
+	return BlackboardEditor.ToSharedRef();
+}
+
+TSharedRef<SWidget> FRVNEditor::SpawnBlackboardDetails()
+{
+	FOnGetSelectedRVNBlackboardItemIndex OnGetSelectedBlackboardItemIndex =
+		FOnGetSelectedRVNBlackboardItemIndex::CreateSP(this, &FRVNEditor::HandleGetSelectedBlackboardItemIndex);
+
+	FOnGetDetailCustomizationInstance LayoutVariableDetails = FOnGetDetailCustomizationInstance::CreateStatic(
+		&FRVNBlackboardDataDetails::MakeInstance, OnGetSelectedBlackboardItemIndex, BlackboardData.Get());
+
+	BlackboardDetailsView->RegisterInstancedCustomPropertyLayout(URVNBlackboardData::StaticClass(),
+	                                                             LayoutVariableDetails);
+	return BlackboardDetailsView.ToSharedRef();
+}
+
+void FRVNEditor::HandleBlackboardEntrySelected(const FRVNBlackboardEntry* BlackboardEntry, bool bIsInherited)
+{
+	const bool bForceRefresh = true;
+
+	if (ensure(BlackboardDetailsView.IsValid()))
+	{
+		BlackboardDetailsView->SetObject(GetBlackboardData(), bForceRefresh);
+	}
+}
+
+void FRVNEditor::HandleBlackboardKeyChanged(URVNBlackboardData* InBlackboardData, FRVNBlackboardEntry* const InKey)
+{
+	if (BlackboardView.IsValid())
+	{
+		BlackboardView->SetObject(InBlackboardData);
+	}
+}
+
+bool FRVNEditor::HandleIsBlackboardModeActive() const
+{
+	return GetCurrentMode() == FRVNEditorApplicationModes::RVNEditorBlackboardMode;
+}
+
+int32 FRVNEditor::HandleGetSelectedBlackboardItemIndex(bool& bOutIsInherited)
+{
+	if (BlackboardEditor.IsValid())
+	{
+		return BlackboardEditor->GetSelectedEntryIndex(bOutIsInherited);
+	}
+
+	return INDEX_NONE;
+}
+
 void FRVNEditor::Compile()
 {
 	FBlueprintEditor::Compile();
@@ -711,10 +874,38 @@ void FRVNEditor::CreateInternalWidgets()
 		NodeListView = SNew(SRVNNodeList)
 			.DialogueGraph(Cast<URVNDialogueGraph>(DialogueGraphPtr));
 	}
+
+	{
+		FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>(
+			"PropertyEditor");
+		FDetailsViewArgs DetailsViewArgs;
+		DetailsViewArgs.NameAreaSettings = FDetailsViewArgs::HideNameArea;
+		DetailsViewArgs.NotifyHook = this;
+		DetailsViewArgs.bHideSelectionTip = true;
+		DetailsViewArgs.DefaultsOnlyVisibility = EEditDefaultsOnlyNodeVisibility::Hide;
+		BlackboardDetailsView = PropertyEditorModule.CreateDetailView(DetailsViewArgs);
+		BlackboardDetailsView->SetObject(nullptr);
+	}
+
+	{
+		BlackboardView = SNew(SRVNBlackboardView, GetToolkitCommands(), GetBlackboardData());
+	}
+
+	{
+		BlackboardEditor = SNew(SRVNBlackboardEditor, GetToolkitCommands(), GetBlackboardData())
+			.OnEntrySelected(this, &FRVNEditor::HandleBlackboardEntrySelected)
+			.OnBlackboardKeyChanged(this, &FRVNEditor::HandleBlackboardKeyChanged)
+			.OnIsBlackboardModeActive(this, &FRVNEditor::HandleIsBlackboardModeActive);
+	}
 }
 
 void FRVNEditor::RefreshRVNEditor(bool bNewlyCreated)
 {
+}
+
+void FRVNEditor::ClearDetailsView()
+{
+	DetailsView->SetObject(nullptr);
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -8,29 +8,14 @@ public class RVisualNarrative : ModuleRules
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicIncludePaths.AddRange(
-			new string[]
-			{
-				// ... add public include paths required here ...
-			}
-		);
-
-
-		PrivateIncludePaths.AddRange(
-			new string[]
-			{
-				// ... add other private include paths required here ...
-			}
-		);
-
-
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core", 
+				"Core",
 				"CoreUObject",
 				"Engine",
-				"RVisualNarrativeCore", 
+				"AIModule",
+				"RVisualNarrativeCore",
 				// ... add other public dependencies that you statically link with here ...
 			}
 		);
@@ -39,16 +24,8 @@ public class RVisualNarrative : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"CrossVersion"
+				"RVisualNarrativeCrossVersion"
 				// ... add private dependencies that you statically link with here ...	
-			}
-		);
-
-
-		DynamicallyLoadedModuleNames.AddRange(
-			new string[]
-			{
-				// ... add any modules that your module loads dynamically here ...
 			}
 		);
 	}

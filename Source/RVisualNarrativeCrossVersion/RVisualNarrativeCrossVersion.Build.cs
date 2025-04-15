@@ -1,8 +1,8 @@
 ﻿using UnrealBuildTool;
 
-public class CrossVersion : ModuleRules
+public class RVisualNarrativeCrossVersion : ModuleRules
 {
-    public CrossVersion(ReadOnlyTargetRules Target) : base(Target)
+    public RVisualNarrativeCrossVersion(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 

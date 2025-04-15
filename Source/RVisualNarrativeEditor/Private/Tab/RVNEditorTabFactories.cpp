@@ -111,4 +111,62 @@ FText FRVNDialogueDetailsSummoner::GetTabToolTipText(const FWorkflowTabSpawnInfo
 	               "The RVN details tab allows editing of the properties of dialogue nodes");
 }
 
+FRVNBlackboardViewerSummoner::FRVNBlackboardViewerSummoner(TSharedPtr<FRVNEditor> InRVNEditorPtr)
+	: FWorkflowTabFactory(FRVNEditorTabsID::BlackboardViewer, InRVNEditorPtr),
+	  RVNEditorPtr(InRVNEditorPtr)
+{
+	TabLabel = LOCTEXT("BlackboardLabel", "Blackboard");
+	TabIcon = FSlateIcon(FAppStyle::GetAppStyleSetName(), "BTEditor.Blackboard");
+
+	bIsSingleton = true;
+
+	ViewMenuDescription = LOCTEXT("BlackboardView", "Blackboard");
+	ViewMenuTooltip = LOCTEXT("BlackboardView_ToolTip", "Show the blackboard view");
+}
+
+TSharedRef<SWidget> FRVNBlackboardViewerSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+{
+	return RVNEditorPtr.Pin()->SpawnBlackboardView();
+}
+
+FText FRVNBlackboardViewerSummoner::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
+{
+	return LOCTEXT("BlackboardViewerTabTooltip",
+	               "The Blackboard view is for viewing and debugging blackboard key/value pairs.");
+}
+
+FRVNBlackboardEditorSummoner::FRVNBlackboardEditorSummoner(TSharedPtr<FRVNEditor> InRVNEditorPtr)
+	: FWorkflowTabFactory(FRVNEditorTabsID::BlackboardEditor, InRVNEditorPtr),
+	  RVNEditorPtr(InRVNEditorPtr)
+{
+}
+
+TSharedRef<SWidget> FRVNBlackboardEditorSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+{
+	return RVNEditorPtr.Pin()->SpawnBlackboardEditor();
+}
+
+FText FRVNBlackboardEditorSummoner::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
+{
+	return LOCTEXT("BlackboardEditorTabTooltip",
+	               "The Blackboard editor is for editing and debugging blackboard key/value pairs.");
+}
+
+FRVNBlackboardDetailsSummoner::FRVNBlackboardDetailsSummoner(TSharedPtr<FRVNEditor> InRVNEditorPtr)
+	: FWorkflowTabFactory(FRVNEditorTabsID::BlackboardDetails, InRVNEditorPtr),
+	  RVNEditorPtr(InRVNEditorPtr)
+{
+}
+
+TSharedRef<SWidget> FRVNBlackboardDetailsSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+{
+	return RVNEditorPtr.Pin()->SpawnBlackboardDetails();
+}
+
+FText FRVNBlackboardDetailsSummoner::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
+{
+	return LOCTEXT("BehaviorTreeDetailsTabTooltip",
+	               "The behavior tree details tab allows editing of the properties of behavior tree nodes");
+}
+
 #undef LOCTEXT_NAMESPACE

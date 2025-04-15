@@ -16,7 +16,11 @@ public:
 
 	virtual void OnEnd_Implementation(URVNComponent* OwnerComponent) override;
 
+	virtual void BreakAsyncTask_Implementation(URVNComponent* OwnerComponent) override;
+
 public:
 	UPROPERTY(EditAnywhere, Category = "Delay")
 	float DelayTime = 2.f;
+
+	FTimerHandle TimerHandle;
 };

@@ -15,7 +15,9 @@ public:
 
 	void FillDialogueToolbar(FExtender& InExtender);
 	void FillEventToolbar(FExtender& InExtender);
+	void FillBlackboardToolbar(FExtender& InExtender);
 
+	void AddBlackboardToolbar(FToolBarBuilder& InToolbarBuilder);
 	void FillModeSwitcherToolbar(FToolBarBuilder& InToolbarBuilder);
 
 protected:
