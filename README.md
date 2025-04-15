@@ -72,3 +72,6 @@ RVisualNarrative 是一款为虚幻引擎(Unreal Engine)开发的跨版本对话
 
 **RVisualNarrative** - 让对话编辑变得简单而高效！
 
+
+## 放一个吉祥物在这里，不要对他做坏事
+![Logo](Resources/Mascot.png)
