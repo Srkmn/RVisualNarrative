@@ -9,6 +9,7 @@ struct FRVNEditorApplicationModes
 {
 	static const FName RVNEditorDialogueMode;
 	static const FName RVNEditorEventMode;
+	static const FName RVNEditorBlackboardMode;
 
 	static FText GetLocalizedMode(const FName InMode)
 	{
@@ -21,6 +22,9 @@ struct FRVNEditorApplicationModes
 
 			LocModes.Add(RVNEditorEventMode, LOCTEXT("RVNEventName",
 			                                         "Event Graph"));
+
+			LocModes.Add(RVNEditorBlackboardMode, LOCTEXT("RVNBlackboardName",
+			                                              "Blackboard"));
 		}
 
 		check(InMode != NAME_None);
@@ -64,4 +68,19 @@ protected:
 	TWeakPtr<FRVNEditor> RVNEditor;
 
 	FWorkflowAllowedTabSet RVNEventTabFactories;
+};
+
+class FRVNBlackboardEditorApplicationMode : public FApplicationMode
+{
+public:
+	FRVNBlackboardEditorApplicationMode(TSharedPtr<FRVNEditor> InEditor);
+
+	virtual void RegisterTabFactories(TSharedPtr<FTabManager> InTabManager) override;
+
+	virtual void PostActivateMode() override;
+
+protected:
+	TWeakPtr<FRVNEditor> RVNEditor;
+
+	FWorkflowAllowedTabSet BlackboardTabFactories;
 };

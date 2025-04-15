@@ -1,7 +1,6 @@
 ﻿#include "RVisualNarrativeEditor.h"
 #include "Modules/ModuleManager.h"
 #include "AssetToolsModule.h"
-#include "RVNAssetActions.h"
 #include "EdGraphUtilities.h"
 #include "RVNEditorCommands.h"
 #include "RVNEditorStyle.h"
@@ -14,6 +13,8 @@
 #include "Settings/RVisualNarrativeEditorSetting.h"
 #include "Toolbar/RVNBlueprintToolBar.h"
 #include "Toolbar/RVNPlayToolBar.h"
+#include "AssetTypeActions_RVNBlackboard.h"
+#include "AssetTypeActions_RVNComponent.h"
 
 #define LOCTEXT_NAMESPACE "FRVisualNarrativeEditorModule"
 
@@ -33,6 +34,8 @@ void FRVisualNarrativeEditorModule::StartupModule()
 	FRVNEditorStyle::ReloadTextures();
 
 	FRVNEditorCommands::Register();
+
+	FRVNBlackboardCommands::Register();
 
 	RVNPlayToolBar = MakeShared<FRVNPlayToolBar>();
 
@@ -80,12 +83,18 @@ void FRVisualNarrativeEditorModule::RegisterRVNAsset()
 	IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
 
 	RVNAssetCategoryType = AssetTools.RegisterAdvancedAssetCategory(
-		TEXT("RVNCategoryType"), LOCTEXT("RVNCategoryType", "RVN"));
+		TEXT("RVNCategoryType"), LOCTEXT("RVNCategoryType", "RVisual Narrative"));
 
 	{
-		const auto AssetActionsPtr = MakeShared<FRVNAssetActions>(RVNAssetCategoryType);
+		const auto ComponentActionsPtr = MakeShared<FAssetTypeActions_RVNComponent>(RVNAssetCategoryType);
 
-		AssetTools.RegisterAssetTypeActions(AssetActionsPtr);
+		AssetTools.RegisterAssetTypeActions(ComponentActionsPtr);
+	}
+
+	{
+		const auto BlackboardActionsPtr = MakeShared<FAssetTypeActions_RVNBlackboard>(RVNAssetCategoryType);
+
+		AssetTools.RegisterAssetTypeActions(BlackboardActionsPtr);
 	}
 
 	{

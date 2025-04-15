@@ -2,10 +2,10 @@
 
 #include "AssetTypeActions_Base.h"
 
-class FRVNAssetActions : public FAssetTypeActions_Base
+class FAssetTypeActions_RVNComponent : public FAssetTypeActions_Base
 {
 public:
-	FRVNAssetActions(EAssetTypeCategories::Type AsstCategory);
+	FAssetTypeActions_RVNComponent(EAssetTypeCategories::Type AsstCategory);
 
 	virtual FText GetName() const override;
 

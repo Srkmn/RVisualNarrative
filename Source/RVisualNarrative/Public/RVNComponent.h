@@ -2,12 +2,14 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "RVNBlackboardAssetProvider.h"
 #include "RVNComponent.generated.h"
 
 class URVNDecorator;
 class URVNConditionBase;
 class URVNTaskBase;
 class URVNDialogueManager;
+class URVNBlackboardData;
 
 USTRUCT(BlueprintType)
 struct RVISUALNARRATIVE_API FRVNNodeData
@@ -98,9 +100,13 @@ struct RVISUALNARRATIVE_API FRVNNodeData
 };
 
 UCLASS(BlueprintType)
-class RVISUALNARRATIVE_API URVNComponent : public UActorComponent
+class RVISUALNARRATIVE_API URVNComponent : public UActorComponent, public IRVNBlackboardAssetProvider
 {
 	GENERATED_BODY()
+
+#if WITH_EDITOR
+	DECLARE_DELEGATE_OneParam(FOnBBDataChanged, URVNBlackboardData*)
+#endif
 
 public:
 	URVNComponent();
@@ -108,13 +114,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dialogue")
 	URVNDialogueManager* GetDialogueManager();
 
-	bool GetNodeData(int32 NodeId, FRVNNodeData& OutNode);
+	/** start IRVNBlackboardAssetProvider API */
+	virtual URVNBlackboardData* GetBlackboardAsset() const override;
+	// END IBlackboardAssetProvider
 
-private:
-	bool GetNodeIndex(int32 NodeId, int32& OutIndex) const;
+	bool GetNodeData(int32 NodeId, FRVNNodeData& OutNode);
 
 	UFUNCTION()
 	void OnDialogueComplete();
+
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
+private:
+	bool GetNodeIndex(int32 NodeId, int32& OutIndex) const;
 
 #if WITH_EDITOR
 
@@ -161,6 +175,9 @@ private:
 	void SortNodesByPosition(TArray<int32>& NodeIds);
 
 	bool GetParentNodeIndex(int32 InNodeId, int32& OutIndex);
+
+public:
+	FOnBBDataChanged OnBlackboardDataChanged;
 #endif
 
 public:
@@ -168,6 +185,9 @@ public:
 
 	UPROPERTY()
 	TArray<FRVNNodeData> Nodes;
+
+	UPROPERTY(EditAnywhere, Category=Blackboard)
+	TObjectPtr<URVNBlackboardData> BlackboardData;
 
 private:
 	UPROPERTY()

@@ -57,3 +57,42 @@ public:
 protected:
 	TWeakPtr<FRVNEditor> RVNEditorPtr;
 };
+
+struct FRVNBlackboardViewerSummoner : FWorkflowTabFactory
+{
+public:
+	FRVNBlackboardViewerSummoner(TSharedPtr<FRVNEditor> InRVNEditorPtr);
+
+	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
+
+	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override;
+
+protected:
+	TWeakPtr<FRVNEditor> RVNEditorPtr;
+};
+
+struct FRVNBlackboardEditorSummoner : FWorkflowTabFactory
+{
+public:
+	FRVNBlackboardEditorSummoner(TSharedPtr<FRVNEditor> InRVNEditorPtr);
+
+	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
+
+	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override;
+
+protected:
+	TWeakPtr<FRVNEditor> RVNEditorPtr;
+};
+
+struct FRVNBlackboardDetailsSummoner : FWorkflowTabFactory
+{
+public:
+	FRVNBlackboardDetailsSummoner(TSharedPtr<FRVNEditor> InRVNEditorPtr);
+
+	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
+
+	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override;
+
+protected:
+	TWeakPtr<FRVNEditor> RVNEditorPtr;
+};

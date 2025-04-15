@@ -1,29 +1,28 @@
-﻿#include "RVisualNarrativeEditor/Public/RVNAssetActions.h"
-#include "RVNAssetBlueprint.h"
-#include "RVNComponent.h"
+﻿#include "RVisualNarrativeEditor/Public/AssetTypeActions_RVNComponent.h"
+#include "Blueprint/RVNAssetBlueprint.h"
 #include "RVNEditor.h"
 
-FRVNAssetActions::FRVNAssetActions(EAssetTypeCategories::Type AsstCategory)
+FAssetTypeActions_RVNComponent::FAssetTypeActions_RVNComponent(EAssetTypeCategories::Type AsstCategory)
 {
 	RVNAssetCategory = AsstCategory;
 }
 
-FText FRVNAssetActions::GetName() const
+FText FAssetTypeActions_RVNComponent::GetName() const
 {
 	return NSLOCTEXT("RVNActions", "RVNActionsName", "RVisual Narrative Component");
 }
 
-FColor FRVNAssetActions::GetTypeColor() const
+FColor FAssetTypeActions_RVNComponent::GetTypeColor() const
 {
 	return FColor(255, 175, 0);
 }
 
-UClass* FRVNAssetActions::GetSupportedClass() const
+UClass* FAssetTypeActions_RVNComponent::GetSupportedClass() const
 {
 	return URVNAssetBlueprint::StaticClass();
 }
 
-void FRVNAssetActions::OpenAssetEditor(const TArray<UObject*>& InObjects,
+void FAssetTypeActions_RVNComponent::OpenAssetEditor(const TArray<UObject*>& InObjects,
                                        const TSharedPtr<IToolkitHost> EditWithinLevelEditor)
 {
 	const auto Mode = EditWithinLevelEditor.IsValid() ? EToolkitMode::WorldCentric : EToolkitMode::Standalone;
@@ -39,7 +38,7 @@ void FRVNAssetActions::OpenAssetEditor(const TArray<UObject*>& InObjects,
 	}
 }
 
-uint32 FRVNAssetActions::GetCategories()
+uint32 FAssetTypeActions_RVNComponent::GetCategories()
 {
 	return RVNAssetCategory;
 }

@@ -50,6 +50,40 @@ TSharedRef<FSlateStyleSet> FRVNEditorStyle::Create()
 
 	Style->Set("RVNEditor.PluginAction", new IMAGE_BRUSH(TEXT("ButtonIcon_40x"), Icon40x40));
 
+	Style->Set("ClassIcon.RVNBlackboardKeyType_Bool",
+	           new FSlateRoundedBoxBrush(FLinearColor(0.300000f, 0.0f, 0.0f, 1.0f), 2.5f, FVector2D(16.f, 5.f)));
+
+	Style->Set("ClassIcon.RVNBlackboardKeyType_Class",
+	           new FSlateRoundedBoxBrush(FLinearColor(0.1f, 0.0f, 0.5f, 1.0f), 2.5f, FVector2D(16.f, 5.f)));
+
+	Style->Set("ClassIcon.RVNBlackboardKeyType_Enum",
+	           new FSlateRoundedBoxBrush(FLinearColor(0.0f, 0.160000f, 0.131270f, 1.0f), 2.5f, FVector2D(16.f, 5.f)));
+
+	Style->Set("ClassIcon.RVNBlackboardKeyType_Float",
+	           new FSlateRoundedBoxBrush(FLinearColor(0.357667f, 1.0f, 0.060000f, 1.0f), 2.5f, FVector2D(16.f, 5.f)));
+
+	Style->Set("ClassIcon.RVNBlackboardKeyType_Int",
+	           new FSlateRoundedBoxBrush(FLinearColor(0.013575f, 0.770000f, 0.429609f, 1.0f), 2.5f,
+	                                     FVector2D(16.f, 5.f)));
+
+	Style->Set("ClassIcon.RVNBlackboardKeyType_Name",
+	           new FSlateRoundedBoxBrush(FLinearColor(0.607717f, 0.224984f, 1.0f, 1.0f), 2.5f, FVector2D(16.f, 5.f)));
+
+	Style->Set("ClassIcon.RVNBlackboardKeyType_NativeEnum",
+	           new FSlateRoundedBoxBrush(FLinearColor(0.0f, 0.160000f, 0.131270f, 1.0f), 2.5f, FVector2D(16.f, 5.f)));
+
+	Style->Set("ClassIcon.RVNBlackboardKeyType_Object",
+	           new FSlateRoundedBoxBrush(FLinearColor(0.0f, 0.4f, 0.910000f, 1.0f), 2.5f, FVector2D(16.f, 5.f)));
+
+	Style->Set("ClassIcon.RVNBlackboardKeyType_Rotator",
+	           new FSlateRoundedBoxBrush(FLinearColor(0.353393f, 0.454175f, 1.0f, 1.0f), 2.5f, FVector2D(16.f, 5.f)));
+
+	Style->Set("ClassIcon.RVNBlackboardKeyType_String",
+	           new FSlateRoundedBoxBrush(FLinearColor(1.0f, 0.0f, 0.660537f, 1.0f), 2.5f, FVector2D(16.f, 5.f)));
+
+	Style->Set("ClassIcon.RVNBlackboardKeyType_Vector",
+	           new FSlateRoundedBoxBrush(FLinearColor(1.0f, 0.591255f, 0.016512f, 1.0f), 2.5f, FVector2D(16.f, 5.f)));
+
 	return Style;
 }
 

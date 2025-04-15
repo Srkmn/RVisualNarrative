@@ -2,18 +2,21 @@
 
 #include "CoreMinimal.h"
 #include "Factories/Factory.h"
-#include "RVNAssetActionsFactory.generated.h"
+#include "RVNComponentFactory.generated.h"
 
 UCLASS()
-class RVISUALNARRATIVEEDITOR_API URVNAssetActionsFactory : public UFactory
+class RVISUALNARRATIVEEDITOR_API URVNComponentFactory : public UFactory
 {
 	GENERATED_BODY()
 
 public:
-	URVNAssetActionsFactory();
+	URVNComponentFactory();
+
 	virtual bool ConfigureProperties() override;
+
 	virtual UObject* FactoryCreateNew(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags,
 	                                  UObject* Context, FFeedbackContext* Warn, FName CallingContext) override;
+
 	virtual UObject* FactoryCreateNew(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags,
 	                                  UObject* Context, FFeedbackContext* Warn) override;
 

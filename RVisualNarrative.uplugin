@@ -34,7 +34,7 @@
 			"WhitelistPlatforms": ["Win64"]
 		},
 		{
-			"Name": "CrossVersion",
+			"Name": "RVisualNarrativeCrossVersion",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": ["Win64"]
