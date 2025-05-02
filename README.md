@@ -25,7 +25,8 @@ RVisualNarrative 是一款为虚幻引擎(Unreal Engine)开发的跨版本对话
 
 ### 逻辑组装
 
-- 自由拖拽 Condition 和 Task 到任意 StateNode
+- 自由拖拽 Condition 到任意 StateNode 和 TaskNode
+- 状态内置状态机，可以拖动Task实现需求
 - 支持同步和异步任务
 - 灵活的逻辑编排机制
 

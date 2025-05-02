@@ -42,19 +42,17 @@ protected:
 		bool& bIsExpanded,
 		const FText& SlotTitle,
 		FOnClicked ExpandCallback);
+	TSharedRef<SWidget> CreateStateGraphSlot();
 
 	FReply OnDialogSlotExpandClicked();
 	FReply OnNodeSlot1ExpandClicked();
-	FReply OnNodeSlot2ExpandClicked();
+	FReply OnOpenStateGraphClicked();
 	void OnConditionSlotExpandedChanged(bool bIsExpanded);
-	void OnTaskSlotExpandedChanged(bool bIsExpanded);
 	void OnDialogTextChanged(const FText& NewText);
 
 	void HandleNodeIdChanged();
 	void HandleAddCondition(URVNConditionBase* ConditionInfo);
 	void HandleRemoveCondition(URVNConditionBase* ConditionInfo);
-	void HandleAddTask(URVNTaskBase* TaskInfo);
-	void HandleRemoveTask(URVNTaskBase* TaskInfo);
 
 	TSharedRef<SWidget> CreateSlotItemWidget(URVNDecorator* InItem);
 
@@ -63,7 +61,6 @@ private:
 
 	bool bIsDialogSlotExpanded;
 	bool bIsNodeSlot1Expanded;
-	bool bIsNodeSlot2Expanded;
 
 	TSharedPtr<SRVNNodeIndex> NodeIndexOverlay;
 	TSharedPtr<SVerticalBox> HeaderBox;
@@ -72,10 +69,8 @@ private:
 
 	TSharedPtr<SVerticalBox> DialogSlotBox;
 	TSharedPtr<SVerticalBox> NodeSlot1Box;
-	TSharedPtr<SVerticalBox> NodeSlot2Box;
 
 	TMap<TObjectPtr<URVNConditionBase>, TSharedPtr<SWidget>> ConditionSlotItems;
-	TMap<TObjectPtr<URVNTaskBase>, TSharedPtr<SWidget>> TaskSlotItems;
 
 	TSharedPtr<SBox> DialogTextBox;
 	TSharedPtr<SMultiLineEditableTextBox> DialogTextEditor;

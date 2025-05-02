@@ -147,7 +147,7 @@ void FRVNClassCollector::PopulateClassInMemoryByClass(UClass* BaseClass)
 			continue;
 		}
 
-		if (CurClass->HasAnyClassFlags(CLASS_Native))
+		if (CurClass->HasAnyClassFlags(CLASS_Native) && !CurClass->HasAnyClassFlags(CLASS_Abstract))
 		{
 			Classes.Add(BaseClass, FRVNClassInfo(CurClass->GetName(), CurClass->GetPathName()));
 		}

@@ -55,6 +55,7 @@ public:
 	void HandleUndoTransactionDG(const FTransaction* Transaction);
 
 	void OpenDocument(UEdGraph* InGraph, FDocumentTracker::EOpenDocumentCause InOpenCause);
+	void CloseDocument(UEdGraph* InGraph);
 
 	virtual void OnClose() override;
 
@@ -64,7 +65,7 @@ public:
 	bool CanAccessEventMode() const;
 	bool CanAccessBlackboardMode() const;
 
-	void OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor);
+	virtual void OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor) override;
 	void OnSelectedNodesChanged(const TSet<UObject*>& NewSelection);
 	void OnNodeDoubleClicked(UEdGraphNode* Node);
 
@@ -83,6 +84,7 @@ public:
 	TSharedRef<SWidget> SpawnBlackboardEditor();
 	TSharedRef<SWidget> SpawnBlackboardDetails();
 
+	void InitializeBlackboard(URVNBlackboardData* InBlackboardData);
 	void HandleBlackboardEntrySelected(const FRVNBlackboardEntry* BlackboardEntry, bool bIsInherited);
 	void HandleBlackboardKeyChanged(URVNBlackboardData* InBlackboardData, FRVNBlackboardEntry* const InKey);
 	bool HandleIsBlackboardModeActive() const;

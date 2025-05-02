@@ -53,6 +53,15 @@ public:
 
 	FORCEINLINE bool HasValidAsset() const;
 
+	FDelegateHandle RegisterObserver(FRVNBlackboard::FKey KeyID, UObject* NotifyOwner,
+	                                 const FOnRVNBlackboardChangeNotification& ObserverDelegate);
+
+	void UnregisterObserver(FRVNBlackboard::FKey KeyID, FDelegateHandle ObserverHandle);
+
+	void UnregisterObserversFrom(UObject* NotifyOwner);
+
+	void NotifyObservers(FRVNBlackboard::FKey KeyID) const;
+
 	URVNBlackboardData* GetBlackboardAsset() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Dialogue")
@@ -76,6 +85,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dialogue")
 	void BreakCurrentDialogue();
 
+	void ProcessTask(URVNTaskBase* InTask);
+
+	bool CheckAllConditions(URVNTaskBase* InTask) const;
+
+	bool CheckCondition(URVNConditionBase* InCondition) const;
+
+	// Start Process Blackboard
 	bool IsCompatibleWith(URVNBlackboardData* TestAsset) const;
 
 	UFUNCTION(BlueprintCallable, Category="Dialogue")
@@ -203,6 +219,15 @@ public:
 	int32 CurrentNodeId;
 
 protected:
+	void InitializeParentChain(URVNBlackboardData* NewAsset);
+
+	void DestroyValues();
+
+	void PopulateSynchronizedKeys();
+
+	bool ShouldSyncWithBlackboard(URVNDialogueManager& OtherManager) const;
+
+protected:
 	UPROPERTY(transient)
 	TObjectPtr<URVNBlackboardData> BlackboardAsset;
 
@@ -214,27 +239,45 @@ protected:
 	TArray<TObjectPtr<URVNBlackboardKeyType>> KeyInstances;
 
 protected:
+	struct FOnRVNBlackboardChangeNotificationInfo
+	{
+		FOnRVNBlackboardChangeNotificationInfo(const FOnRVNBlackboardChangeNotification& InDelegateHandle)
+			: DelegateHandle(InDelegateHandle)
+		{
+		}
+
+		FDelegateHandle GetHandle() const
+		{
+			return DelegateHandle.GetHandle();
+		}
+
+		FOnRVNBlackboardChangeNotification DelegateHandle;
+		bool bToBeRemoved = false;
+	};
+
+	// The number of decorators being notified
+	mutable int32 NotifyObserversRecursionCount = 0;
+
+	mutable int32 ObserversToRemoveCount = 0;
+
+	mutable TMultiMap<uint8, FOnRVNBlackboardChangeNotificationInfo> Observers;
+
+	mutable TMultiMap<UObject*, FDelegateHandle> ObserverHandles;
+
 	uint32 bSynchronizedKeyPopulated : 1;
-
-	void InitializeParentChain(URVNBlackboardData* NewAsset);
-
-	void DestroyValues();
-
-	void PopulateSynchronizedKeys();
-
-	bool ShouldSyncWithBlackboard(URVNDialogueManager& OtherManager) const;
 
 private:
 	TWeakObjectPtr<URVNComponent> RVNComponent;
 
-	TArray<URVNTaskBase*> CurrentTasks;
-	int32 PendingProcessCount;
-	int32 CompletedTaskCount;
+	UPROPERTY()
+	TObjectPtr<URVNTaskBase> PendingProcessTask;
 
 	static TMultiMap<TWeakObjectPtr<URVNBlackboardData>, TWeakObjectPtr<URVNDialogueManager>>
 	BlackboardDataToManagersMap;
 
 	void OnTaskCompleted(URVNTaskBase* CompletedTask);
+
+	void TryProcessNextTask();
 
 	friend URVNBlackboardKeyType;
 };
@@ -273,6 +316,7 @@ bool URVNDialogueManager::SetValue(FRVNBlackboard::FKey KeyID, typename TDataCla
 		if (URVNBlackboardKeyType* KeyOb = EntryInfo->KeyType->HasInstance() ? KeyInstances[KeyID] : EntryInfo->KeyType;
 			TDataClass::SetValue((TDataClass*)KeyOb, RawData, Value))
 		{
+			NotifyObservers(KeyID);
 			if (BlackboardAsset->HasSynchronizedKeys() && IsKeyInstanceSynced(KeyID))
 			{
 				for (auto Iter = BlackboardDataToManagersMap.CreateIterator(); Iter; ++Iter)
@@ -320,6 +364,7 @@ bool URVNDialogueManager::SetValue(FRVNBlackboard::FKey KeyID, typename TDataCla
 							uint8* OtherRawData = OtherManager->GetKeyRawData(OtherKeyID) + DataOffset;
 
 							TDataClass::SetValue((TDataClass*)OtherKeyOb, OtherRawData, Value);
+							OtherManager->NotifyObservers(OtherKeyID);
 						}
 					}
 				}

@@ -1,12 +1,11 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/Object.h"
 #include "RVNDecorator.generated.h"
 
 class URVNComponent;
 
-UCLASS()
+UCLASS(abstract)
 class RVISUALNARRATIVE_API URVNDecorator : public UObject
 {
 	GENERATED_BODY()
@@ -14,5 +13,7 @@ class RVISUALNARRATIVE_API URVNDecorator : public UObject
 public:
 #if WITH_EDITOR
 	virtual FString GetNodeIconName() const;
+
+	virtual URVNDecorator* PasteDecorator();
 #endif
 };

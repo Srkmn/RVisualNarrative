@@ -4,7 +4,7 @@
 #include "RVNTask.h"
 #include "RVNAsyncTask.generated.h"
 
-UCLASS(Blueprintable)
+UCLASS(abstract)
 class RVISUALNARRATIVE_API URVNAsyncTask : public URVNTaskBase
 {
 	GENERATED_BODY()

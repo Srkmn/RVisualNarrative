@@ -1,7 +1,7 @@
 ﻿#include "Graph/Node/Slate/InternalWidget/SRVNStateInternal_Decorator.h"
 #include "Graph/RVNDialogueGraph.h"
 #include "Graph/Node/RVNStateNode.h"
-#include "Graph/Node/Slate/SRVNStateNode.h"
+#include "Graph/Node/Slate/SRVNStateWidget.h"
 
 #define LOCTEXT_NAMESPACE "RVNStateInternal_Decorator"
 
@@ -132,8 +132,6 @@ public:
 								return;
 							}
 
-							RVNComp->SetFlags(RF_Transactional);
-
 							UnderStateNode->AddDecorator(OverlayDecorator);
 
 							StateNode->GetStateNode()->RemoveDecorator(OverlayDecorator);
@@ -166,7 +164,6 @@ const FLinearColor SRVNStateInternal_Decorator::ColorDragging(0.3f, 0.3f, 0.4f, 
 void SRVNStateInternal_Decorator::Construct(const FArguments& InArgs)
 {
 	DecoratorPtr = InArgs._DecoratorPtr;
-	OuterNode = InArgs._OuterNode;
 	OnSelectedDecorator = InArgs._OnSelectedDecorator;
 	OnDeleteRequested = InArgs._OnDeleteRequested;
 

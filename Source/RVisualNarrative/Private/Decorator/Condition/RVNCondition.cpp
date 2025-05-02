@@ -5,16 +5,14 @@ FString URVNConditionBase::GetNodeIconName() const
 {
 	return TEXT("Icons.Help");
 }
+
+URVNDecorator* URVNConditionBase::PasteDecorator()
+{
+	return DuplicateObject<URVNConditionBase>(this, GetOuter());
+}
 #endif
 
 bool URVNConditionBase::CheckCondition_Implementation(URVNComponent* OwnerComponent)
 {
-	return false;
-}
-
-bool URVNCondition::CheckCondition_Implementation(URVNComponent* OwnerComponent)
-{
-	UE_LOG(LogTemp, Display, TEXT("URVNConditionBase::BP_CheckCondition_Implementation()!"));
-
 	return false;
 }

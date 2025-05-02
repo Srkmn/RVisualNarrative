@@ -4,6 +4,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "GraphEditorDragDropAction.h"
 
+class FRVNEditor;
 class URVNDecorator;
 class URVNStateNode;
 class URVNDialogueGraph;
@@ -33,9 +34,9 @@ public:
 
 	TWeakObjectPtr<URVNStateNode> OverlappingNode;
 
-	TWeakObjectPtr<URVNDialogueGraph> DialogueGraph;
+	TWeakPtr<FRVNEditor> RVNEditorPtr;
 
-	static TSharedRef<FRVNNodeDragDropOp> New(UClass* InNodeClass, URVNDialogueGraph* InGraph);
+	static TSharedRef<FRVNNodeDragDropOp> New(UClass* InNodeClass, TWeakPtr<FRVNEditor> InGraph);
 
 	virtual void OnDragged(const FDragDropEvent& DragDropEvent) override;
 
@@ -50,7 +51,7 @@ class SRVNNodeList : public SCompoundWidget
 		{
 		}
 
-		SLATE_ARGUMENT(URVNDialogueGraph*, DialogueGraph)
+		SLATE_ARGUMENT(FRVNEditor*, RVNEditor)
 
 	SLATE_END_ARGS()
 
@@ -73,7 +74,7 @@ private:
 	TSharedPtr<FRVNClassInfo> GetNodeUnderMouse(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 
 private:
-	TWeakObjectPtr<URVNDialogueGraph> DialogueGraph;
+	TWeakPtr<FRVNEditor> RVNEditorPtr;
 
 	TMap<FString, TSharedPtr<FRVNNodeCategory>> NodeCategories;
 	TArray<TSharedPtr<FRVNNodeCategory>> FilteredCategories;

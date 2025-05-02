@@ -48,6 +48,9 @@ struct RVISUALNARRATIVE_API FRVNNodeData
 	UPROPERTY()
 	TArray<URVNTaskBase*> Tasks;
 
+	UPROPERTY()
+	TArray<URVNTaskBase*> TaskReferences;
+
 	FRVNNodeData()
 		: NodeId(INDEX_NONE)
 		  , bIsPlayer(true)
@@ -135,7 +138,7 @@ private:
 public:
 	FRVNNodeData& CreateNode(const FVector2d& InPosition);
 
-	URVNDecorator* CreateDecorator(const UClass* InDecoratorClass) const;
+	URVNDecorator* CreateDecorator(const UClass* InDecoratorClass, UObject* InOuter = nullptr) const;
 
 	void RemoveNode(int32 NodeId);
 
@@ -166,8 +169,15 @@ public:
 	UFUNCTION()
 	void AddTask(int32 NodeId, URVNTaskBase* Task);
 
+	void AddTaskReference(int32 NodeId, URVNTaskBase* Task);
+
 	UFUNCTION()
 	void RemoveTask(int32 NodeId, URVNTaskBase* Task);
+
+	void RemoveTaskReference(int32 NodeId, URVNTaskBase* Task);
+
+	UFUNCTION()
+	void OnReorderTaskNodes(int32 NodeId, const TArray<URVNTaskBase*>& InTaskNodes);
 
 private:
 	void InvalidateNode(int32 Index);

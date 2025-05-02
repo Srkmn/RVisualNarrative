@@ -93,9 +93,9 @@ FRVNNodeData& URVNComponent::CreateNode(const FVector2d& InPosition)
 	return Nodes[NewIndex];
 }
 
-URVNDecorator* URVNComponent::CreateDecorator(const UClass* InDecoratorClass) const
+URVNDecorator* URVNComponent::CreateDecorator(const UClass* InDecoratorClass, UObject* InOuter) const
 {
-	return NewObject<URVNDecorator>(GetPackage(), InDecoratorClass);
+	return NewObject<URVNDecorator>(InOuter == nullptr ? GetPackage() : InOuter, InDecoratorClass);
 }
 
 void URVNComponent::RemoveNode(int32 NodeId)
@@ -380,6 +380,19 @@ void URVNComponent::AddTask(int32 NodeId, URVNTaskBase* Task)
 	Nodes[Index].Tasks.AddUnique(Task);
 }
 
+void URVNComponent::AddTaskReference(int32 NodeId, URVNTaskBase* Task)
+{
+	int32 Index;
+	if (!GetNodeIndex(NodeId, Index))
+	{
+		return;
+	}
+
+	Modify();
+
+	Nodes[Index].TaskReferences.AddUnique(Task);
+}
+
 void URVNComponent::RemoveTask(int32 NodeId, URVNTaskBase* Task)
 {
 	int32 Index;
@@ -391,6 +404,32 @@ void URVNComponent::RemoveTask(int32 NodeId, URVNTaskBase* Task)
 	Modify();
 
 	Nodes[Index].Tasks.Remove(Task);
+}
+
+void URVNComponent::RemoveTaskReference(int32 NodeId, URVNTaskBase* Task)
+{
+	int32 Index;
+	if (!GetNodeIndex(NodeId, Index))
+	{
+		return;
+	}
+
+	Modify();
+
+	Nodes[Index].TaskReferences.Remove(Task);
+}
+
+void URVNComponent::OnReorderTaskNodes(int32 NodeId, const TArray<URVNTaskBase*>& InTaskNodes)
+{
+	int32 Index;
+	if (!GetNodeIndex(NodeId, Index))
+	{
+		return;
+	}
+
+	Modify();
+
+	Nodes[Index].Tasks = InTaskNodes;
 }
 
 void URVNComponent::InvalidateNode(int32 Index)
@@ -409,6 +448,7 @@ void URVNComponent::InvalidateNode(int32 Index)
 	Nodes[Index].NextNodesId.Empty();
 	Nodes[Index].Conditions.Empty();
 	Nodes[Index].Tasks.Empty();
+	Nodes[Index].TaskReferences.Empty();
 }
 
 void URVNComponent::SortNodesByPosition(TArray<int32>& NodeIds)

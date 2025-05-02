@@ -5,7 +5,7 @@
 #include "RVNCondition_Default.generated.h"
 
 UCLASS(Blueprintable)
-class RVISUALNARRATIVE_API URVNCondition_Default : public URVNCondition
+class RVISUALNARRATIVE_API URVNCondition_Default : public URVNConditionBase
 {
 	GENERATED_BODY()
 

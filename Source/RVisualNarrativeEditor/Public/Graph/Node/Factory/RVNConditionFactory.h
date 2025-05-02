@@ -4,7 +4,7 @@
 #include "Factories/Factory.h"
 #include "RVNConditionFactory.generated.h"
 
-class URVNCondition;
+class URVNConditionBase;
 
 UCLASS()
 class RVISUALNARRATIVEEDITOR_API URVNConditionFactory : public UFactory
@@ -18,7 +18,7 @@ public:
 	TEnumAsByte<EBlueprintType> BlueprintType;
 
 	UPROPERTY(EditAnywhere, Category=GameplayAbilitiesBlueprintFactory)
-	TSubclassOf<URVNCondition> ParentClass;
+	TSubclassOf<URVNConditionBase> ParentClass;
 
 	//~ Begin UFactory Interface
 	virtual bool ConfigureProperties() override;

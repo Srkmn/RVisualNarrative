@@ -2,19 +2,19 @@
 
 #include "CoreMinimal.h"
 #include "EdGraph/EdGraphSchema.h"
-#include "DialogueGraphSchemaActions.generated.h"
+#include "EdGraphSchemaAction_RVNDialogue.generated.h"
 
 USTRUCT()
-struct RVISUALNARRATIVEEDITOR_API FDGSchemaStateNodeAction : public FEdGraphSchemaAction
+struct RVISUALNARRATIVEEDITOR_API FEdGraphSchemaAction_Dialogue_State : public FEdGraphSchemaAction
 {
 	GENERATED_BODY()
 
 public:
-	FDGSchemaStateNodeAction()
+	FEdGraphSchemaAction_Dialogue_State()
 	{
 	};
 
-	FDGSchemaStateNodeAction(FText InNodeCategory, FText InMenuDesc, FText InToolTip, const int32 InGrouping)
+	FEdGraphSchemaAction_Dialogue_State(FText InNodeCategory, FText InMenuDesc, FText InToolTip, const int32 InGrouping)
 		: FEdGraphSchemaAction(MoveTemp(InNodeCategory), MoveTemp(InMenuDesc), MoveTemp(InToolTip), InGrouping)
 	{
 	}
@@ -24,16 +24,16 @@ public:
 };
 
 USTRUCT()
-struct RVISUALNARRATIVEEDITOR_API FDGSchemaSelectorNodeAction : public FEdGraphSchemaAction
+struct RVISUALNARRATIVEEDITOR_API FEdGraphSchemaAction_Dialogue_Selector : public FEdGraphSchemaAction
 {
 	GENERATED_BODY()
 
 public:
-	FDGSchemaSelectorNodeAction()
+	FEdGraphSchemaAction_Dialogue_Selector()
 	{
 	};
 
-	FDGSchemaSelectorNodeAction(FText InNodeCategory, FText InMenuDesc, FText InToolTip, const int32 InGrouping)
+	FEdGraphSchemaAction_Dialogue_Selector(FText InNodeCategory, FText InMenuDesc, FText InToolTip, const int32 InGrouping)
 		: FEdGraphSchemaAction(MoveTemp(InNodeCategory), MoveTemp(InMenuDesc), MoveTemp(InToolTip), InGrouping)
 	{
 	}

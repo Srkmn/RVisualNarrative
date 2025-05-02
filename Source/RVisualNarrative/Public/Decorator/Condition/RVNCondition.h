@@ -10,26 +10,20 @@ struct FRVNConditionParams
 	URVNComponent* InRVNComponent = nullptr;
 };
 
-UCLASS(Blueprintable)
+UCLASS(abstract)
 class RVISUALNARRATIVE_API URVNConditionBase : public URVNDecorator
 {
 	GENERATED_BODY()
 
+public:
 #if WITH_EDITOR
 	virtual FString GetNodeIconName() const override;
+
+	virtual URVNDecorator* PasteDecorator() override;
 #endif
 
 public:
 	UFUNCTION(BlueprintNativeEvent, Category = "Condition")
 	bool CheckCondition(URVNComponent* OwnerComponent);
 	virtual bool CheckCondition_Implementation(URVNComponent* OwnerComponent);
-};
-
-UCLASS(Blueprintable)
-class RVISUALNARRATIVE_API URVNCondition : public URVNConditionBase
-{
-	GENERATED_BODY()
-
-public:
-	virtual bool CheckCondition_Implementation(URVNComponent* OwnerComponent) override;
 };

@@ -49,9 +49,9 @@ public:
 
 	URVNStateNode* CreateStateNode(ENodeType InType, const FVector2D& InPosition);
 
-	URVNDecorator* CreateDecorator(const UClass* InDecoratorClass) const;
+	URVNDecorator* CreateDecorator(const UClass* InDecoratorClass, UObject* InOuter = nullptr) const;
 
-	void ProcessPasteNodes(const TArray<URVNStateNode*>& InStateNodes);
+	void ProcessPasteStateNodes(const TArray<URVNStateNode*>& InStateNodes);
 
 	bool GetNodeData(int32 InNodeId, FRVNNodeData& OutData) const;
 
@@ -82,6 +82,8 @@ public:
 	void AddTask(int32 NodeId, URVNTaskBase* Task) const;
 
 	void RemoveTask(int32 NodeId, URVNTaskBase* Task) const;
+
+	void RefreshTasks(int32 InNodeId, const TArray<URVNTaskBase*>& InTaskNodes) const;
 
 public:
 	UPROPERTY()

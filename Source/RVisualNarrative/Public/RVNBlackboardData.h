@@ -4,6 +4,7 @@
 #include "Engine/DataAsset.h"
 #include "RVNBlackboardData.generated.h"
 
+class URVNDialogueManager;
 class URVNBlackboardKeyType;
 
 USTRUCT()
@@ -43,6 +44,15 @@ namespace FRVNBlackboard
 
 	constexpr FKey InvalidKey = static_cast<FKey>(-1);
 }
+
+enum class ERVNBlackboardNotificationResult : uint8
+{
+	RemoveObserver,
+	
+	ContinueObserving
+};
+
+DECLARE_DELEGATE_RetVal_TwoParams(ERVNBlackboardNotificationResult, FOnRVNBlackboardChangeNotification, const URVNDialogueManager&, FRVNBlackboard::FKey);
 
 UCLASS(BlueprintType, AutoExpandCategories=(Blackboard))
 class RVISUALNARRATIVE_API URVNBlackboardData : public UDataAsset
