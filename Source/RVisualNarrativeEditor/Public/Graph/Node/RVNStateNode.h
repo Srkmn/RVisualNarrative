@@ -5,7 +5,7 @@
 #include "EdGraph/EdGraphNode.h"
 #include "RVNStateNode.generated.h"
 
-class URVNDecorator;
+class URVNStateGraph;class URVNDecorator;
 class URVNTaskBase;
 class URVNConditionBase;
 class URVNDialogueGraph;
@@ -27,12 +27,9 @@ class RVISUALNARRATIVEEDITOR_API URVNStateNode : public UEdGraphNode
 {
 	GENERATED_BODY()
 
-	//DECLARE_DELEGATE(FOnPropertyChanged);
 	DECLARE_DELEGATE(FOnNodeIdChanged);
 	DECLARE_DELEGATE_OneParam(FOnAddCondition, URVNConditionBase*);
-	DECLARE_DELEGATE_OneParam(FOnAddTask, URVNTaskBase*);
 	DECLARE_DELEGATE_OneParam(FOnRemoveCondition, URVNConditionBase*);
-	DECLARE_DELEGATE_OneParam(FOnRemoveTask, URVNTaskBase*);
 
 public:
 	URVNStateNode();
@@ -48,19 +45,22 @@ public:
 	FORCEINLINE bool IsDialogueNode() const { return GetNodeType() == ENodeType::ENT_Dialogue; }
 	FORCEINLINE bool IsSelectNode() const { return GetNodeType() == ENodeType::ENT_Select; }
 	FORCEINLINE ENodeType GetNodeType() const { return NodeType; }
-	FORCEINLINE TArray<URVNConditionBase*> GetConditionNodes() { return ConditionNodes; }
-	FORCEINLINE TArray<URVNTaskBase*> GetTaskNodes() { return TaskNodes; }
+	FORCEINLINE const TArray<URVNConditionBase*>& GetConditionNodes() const { return ConditionNodes; }
+	FORCEINLINE TArray<URVNConditionBase*>& GetConditionNodes() { return ConditionNodes; }
 
 	// 插槽节点管理
+	void ProcessPasteStateNodes(FRVNNodeData& InNodeData);
 	void PasteDecorator(const TArray<URVNDecorator*>& InDecorator);
-	void PasteDecorator(const URVNDecorator* InDecorator);
+	void PasteDecorator(URVNDecorator* InDecorator);
 	void OnSelectedDecorator(URVNDecorator* InDecorator);
 	void AddDecorator(URVNDecorator* InDecorator);
 	void AddCondition(URVNConditionBase* InCondition);
 	void AddTask(URVNTaskBase* InTask);
+	void AddTaskReference(URVNTaskBase* InTask);
 	void RemoveDecorator(URVNDecorator* InDecorator);
 	void RemoveCondition(URVNConditionBase* InCondition);
 	void RemoveTask(URVNTaskBase* InTask);
+	void OnReorderTaskNodes(const TArray<URVNTaskBase*>& InTaskNodes);
 
 	// Index
 	int32 GetNodeId() const;
@@ -88,7 +88,12 @@ public:
 	URVNDialogueGraph* GetDialogueGraph();
 
 public:
-	// 基础数据
+	// State Graph
+	TObjectPtr<URVNStateGraph> GetStateGraph();
+
+	void OpenStateGraph();
+
+public:
 	UPROPERTY(VisibleAnywhere, Category = "Dialogue")
 	int32 NodeId;
 
@@ -101,12 +106,8 @@ public:
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "NodeType == ENodeType::ENT_Dialogue"), Category = "Dialogue")
 	bool bIsPlayer;
 
-	// 插槽节点
 	UPROPERTY(VisibleAnywhere, meta = (EditCondition = "NodeType != ENodeType::ENT_Entry"), Category = "Dialogue")
 	TArray<URVNConditionBase*> ConditionNodes;
-
-	UPROPERTY(VisibleAnywhere, Category = "Dialogue")
-	TArray<URVNTaskBase*> TaskNodes;
 
 	UPROPERTY(VisibleAnywhere, Category = "Internal")
 	ENodeType NodeType;
@@ -114,15 +115,15 @@ public:
 public:
 	FOnNodeIdChanged OnNodeIdChangedCallback;
 	FOnAddCondition OnAddConditionCallback;
-	FOnAddTask OnAddTaskCallback;
 	FOnRemoveCondition OnRemoveConditionCallback;
-	FOnRemoveTask OnRemoveTaskCallback;
 
 private:
 	UPROPERTY()
 	TWeakObjectPtr<URVNDialogueGraph> RVNDialogueGraph;
 
-	// 连接管理  
+	UPROPERTY()
+	TObjectPtr<URVNStateGraph> StateGraph;
+
 	UPROPERTY()
 	TArray<URVNStateNode*> InputConnections;
 

@@ -1,6 +1,6 @@
-﻿#include "Graph/DialogueGraphSchema.h"
+﻿#include "Graph/EdGraphSchema_RVNDialogue.h"
 
-#include "Graph/DialogueGraphSchemaActions.h"
+#include "Graph/EdGraphSchemaAction_RVNDialogue.h"
 #include "Graph/GraphEditorCommands.h"
 #include "Graph/RVNDialogueGraph.h"
 #include "ToolMenu.h"
@@ -8,7 +8,7 @@
 
 #define LOCTEXT_NAMESPACE "DialogueGraphSchema"
 
-void URVNDialogueGraphSchema::GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const
+void UEdGraphSchema_RVNDialogue::GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const
 {
 	const FText Category = LOCTEXT("GetGraphContextActionsCategory_StateNode", "Dialogue Node");
 
@@ -17,8 +17,8 @@ void URVNDialogueGraphSchema::GetGraphContextActions(FGraphContextMenuBuilder& C
 		const FText ToolTipGraph_Dialogue = LOCTEXT("GetGraphContextActionsTooltip_StateNode",
 		                                            "Add New State Node to Graph");
 
-		const TSharedPtr<FDGSchemaStateNodeAction> NewDialogueNode1(
-			new FDGSchemaStateNodeAction(Category, MenuDescGraph_Dialogue, ToolTipGraph_Dialogue, 0));
+		const TSharedPtr<FEdGraphSchemaAction_Dialogue_State> NewDialogueNode1(
+			new FEdGraphSchemaAction_Dialogue_State(Category, MenuDescGraph_Dialogue, ToolTipGraph_Dialogue, 0));
 
 		ContextMenuBuilder.AddAction(NewDialogueNode1);
 	}
@@ -28,14 +28,14 @@ void URVNDialogueGraphSchema::GetGraphContextActions(FGraphContextMenuBuilder& C
 		const FText ToolTipGraph_Select = LOCTEXT("GetGraphContextActionsTooltip_StateNode",
 		                                          "Add New Select Node to Graph");
 
-		const TSharedPtr<FDGSchemaSelectorNodeAction> NewDialogueNode2(
-			new FDGSchemaSelectorNodeAction(Category, MenuDescGraph_Select, ToolTipGraph_Select, 0));
+		const TSharedPtr<FEdGraphSchemaAction_Dialogue_Selector> NewDialogueNode2(
+			new FEdGraphSchemaAction_Dialogue_Selector(Category, MenuDescGraph_Select, ToolTipGraph_Select, 0));
 
 		ContextMenuBuilder.AddAction(NewDialogueNode2);
 	}
 }
 
-void URVNDialogueGraphSchema::GetContextMenuActions(UToolMenu* Menu, UGraphNodeContextMenuContext* Context) const
+void UEdGraphSchema_RVNDialogue::GetContextMenuActions(UToolMenu* Menu, UGraphNodeContextMenuContext* Context) const
 {
 	if (!Context || !Context->Graph)
 	{
@@ -59,7 +59,7 @@ void URVNDialogueGraphSchema::GetContextMenuActions(UToolMenu* Menu, UGraphNodeC
 	Super::GetContextMenuActions(Menu, Context);
 }
 
-void URVNDialogueGraphSchema::CreateDefaultNodesForGraph(UEdGraph& Graph) const
+void UEdGraphSchema_RVNDialogue::CreateDefaultNodesForGraph(UEdGraph& Graph) const
 {
 	URVNDialogueGraph* CurrentGraph = CastChecked<URVNDialogueGraph>(&Graph);
 
@@ -79,7 +79,7 @@ void URVNDialogueGraphSchema::CreateDefaultNodesForGraph(UEdGraph& Graph) const
 	CurrentGraph->Entry = EntryNode;
 }
 
-bool URVNDialogueGraphSchema::TryCreateConnection(UEdGraphPin* A, UEdGraphPin* B) const
+bool UEdGraphSchema_RVNDialogue::TryCreateConnection(UEdGraphPin* A, UEdGraphPin* B) const
 {
 	if (A->GetOwningNode() == B->GetOwningNode())
 	{
@@ -126,7 +126,7 @@ bool URVNDialogueGraphSchema::TryCreateConnection(UEdGraphPin* A, UEdGraphPin* B
 	return UEdGraphSchema::TryCreateConnection(A, B);
 }
 
-const FPinConnectionResponse URVNDialogueGraphSchema::CanCreateConnection(
+const FPinConnectionResponse UEdGraphSchema_RVNDialogue::CanCreateConnection(
 	const UEdGraphPin* A, const UEdGraphPin* B) const
 {
 	if (A->GetOwningNode() == B->GetOwningNode())

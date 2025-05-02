@@ -13,7 +13,7 @@ URVNConditionFactory::URVNConditionFactory()
 	bCreateNew = true;
 	bEditAfterNew = true;
 	SupportedClass = URVNConditionNodeBlueprint::StaticClass();
-	ParentClass = URVNCondition::StaticClass();
+	ParentClass = URVNConditionBase::StaticClass();
 }
 
 bool URVNConditionFactory::ConfigureProperties()
@@ -40,7 +40,7 @@ UObject* URVNConditionFactory::FactoryCreateNew(UClass* Class, UObject* InParent
 	}
 
 	if ((ParentClass == nullptr) || !FKismetEditorUtilities::CanCreateBlueprintOfClass(ParentClass) || !ParentClass->
-		IsChildOf(URVNCondition::StaticClass()))
+		IsChildOf(URVNConditionBase::StaticClass()))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("ClassName"), (ParentClass != nullptr)

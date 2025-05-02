@@ -2,21 +2,25 @@
 #include "Widgets/Input/SSearchBox.h"
 #include "Widgets/Layout/SExpandableArea.h"
 #include "Widgets/Layout/SScrollBox.h"
+#include "SGraphPanel.h"
 #include "Decorator/RVNDecorator.h"
 #include "Decorator/Condition/RVNCondition.h"
 #include "Decorator/Task/RVNTask.h"
 #include "RVisualNarrativeEditor.h"
+#include "RVNEditor.h"
 #include "Graph/RVNDialogueGraph.h"
+#include "Graph/RVNStateGraph.h"
 #include "Graph/Node/RVNStateNode.h"
-#include "Graph/Node/Slate/SRVNStateNode.h"
+#include "Graph/Node/RVNTaskNode.h"
+#include "Graph/Node/Slate/SRVNStateWidget.h"
 
 #define LOCTEXT_NAMESPACE "SRVNDialogueNodeList"
 
-TSharedRef<FRVNNodeDragDropOp> FRVNNodeDragDropOp::New(UClass* InNodeClass, URVNDialogueGraph* InGraph)
+TSharedRef<FRVNNodeDragDropOp> FRVNNodeDragDropOp::New(UClass* InNodeClass, TWeakPtr<FRVNEditor> InGraph)
 {
 	TSharedRef<FRVNNodeDragDropOp> Operation = MakeShared<FRVNNodeDragDropOp>();
 	Operation->DraggedNodeClass = InNodeClass;
-	Operation->DialogueGraph = InGraph;
+	Operation->RVNEditorPtr = InGraph;
 
 	Operation->DecoratorWidget =
 		SNew(SBorder)
@@ -77,8 +81,6 @@ void FRVNNodeDragDropOp::OnDragged(const FDragDropEvent& DragDropEvent)
 			}
 		}
 
-		check(DraggedNodeClass && DialogueGraph.IsValid())
-
 		DecoratorWidget->SetVisibility(EVisibility::Visible);
 	}
 }
@@ -90,29 +92,90 @@ void FRVNNodeDragDropOp::OnDrop(bool bDropWasHandled, const FPointerEvent& Mouse
 		DecoratorWidget->SetVisibility(EVisibility::Collapsed);
 	}
 
-	for (auto It = DialogueGraph->Nodes.CreateConstIterator(); It; ++It)
+	if (!RVNEditorPtr.IsValid())
 	{
-		const auto StateNode = Cast<URVNStateNode>(*It);
-
-		const auto StateNodeGeometry = StateNode->GetStateWidget()->GetCachedGeometry();
-
-		if (StateNodeGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()))
-		{
-			OverlappingNode = StateNode;
-		}
+		return;
 	}
 
-	const auto NewDecorator = DialogueGraph->CreateDecorator(DraggedNodeClass);
+	UEdGraph* FocusedGraph = RVNEditorPtr.Pin()->GetFocusedGraph();
 
-	if (OverlappingNode.IsValid() && NewDecorator)
+	if (const auto DialogueGraph = Cast<URVNDialogueGraph>(FocusedGraph))
 	{
-		if (const auto ConditionNode = Cast<URVNConditionBase>(NewDecorator))
+		for (auto It = DialogueGraph->Nodes.CreateConstIterator(); It; ++It)
 		{
-			OverlappingNode->AddCondition(ConditionNode);
+			const auto StateNode = Cast<URVNStateNode>(*It);
+
+			const auto StateNodeGeometry = StateNode->GetStateWidget()->GetCachedGeometry();
+
+			if (StateNodeGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()))
+			{
+				OverlappingNode = StateNode;
+
+				break;
+			}
 		}
-		else if (const auto TaskNode = Cast<URVNTaskBase>(NewDecorator))
+
+		const FScopedTransaction Transaction(FText::FromString(TEXT("Add Condition to State Node")));
+
+		const auto NewDecorator = DialogueGraph->CreateDecorator(DraggedNodeClass);
+
+		if (OverlappingNode.IsValid() && NewDecorator && DraggedNodeClass->IsChildOf(URVNConditionBase::StaticClass()))
 		{
-			OverlappingNode->AddTask(TaskNode);
+			OverlappingNode->AddDecorator(NewDecorator);
+		}
+	}
+	else if (const auto StateGraph = Cast<URVNStateGraph>(FocusedGraph))
+	{
+		if (DraggedNodeClass->IsChildOf(URVNTaskBase::StaticClass()))
+		{
+			const auto ScreenSpacePosition = MouseEvent.GetScreenSpacePosition();
+
+			const auto GraphPanel = RVNEditorPtr.Pin()->GraphEditor->GetGraphPanel();
+
+			const auto PanelGeometry = GraphPanel->GetCachedGeometry();
+
+			FVector2D PanelCoordinate = PanelGeometry.AbsoluteToLocal(ScreenSpacePosition);
+
+			FVector2D GraphPosition = GraphPanel->PanelCoordToGraphCoord(PanelCoordinate);
+
+			const FScopedTransaction Transaction(FText::FromString(TEXT("Add Task to State Node")));
+
+			const auto NewDecorator = StateGraph->CreateDecorator(DraggedNodeClass);
+
+			if (const auto Task = Cast<URVNTaskBase>(NewDecorator))
+			{
+				StateGraph->Modify();
+
+				StateGraph->OwnerStateNode->AddTaskReference(Task);
+
+				StateGraph->CreateTaskNode(GraphPosition, Task);
+
+				StateGraph->NotifyGraphChanged();
+			}
+		}
+		else if (DraggedNodeClass->IsChildOf(URVNConditionBase::StaticClass()))
+		{
+			for (auto It = StateGraph->Nodes.CreateConstIterator(); It; ++It)
+			{
+				if (const auto TaskNode = Cast<URVNTaskNode>(*It))
+				{
+					const auto TaskNodeGeometry = TaskNode->GetTaskWidget()->GetCachedGeometry();
+
+					if (TaskNodeGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()))
+					{
+						const FScopedTransaction Transaction(FText::FromString(TEXT("Add Condition to Task Node")));
+
+						const auto NewDecorator = StateGraph->CreateDecorator(DraggedNodeClass);
+
+						if (const auto Condition = Cast<URVNConditionBase>(NewDecorator))
+						{
+							TaskNode->AddCondition(Condition);
+
+							break;
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -127,7 +190,7 @@ FCursorReply FRVNNodeDragDropOp::OnCursorQuery()
 
 void SRVNNodeList::Construct(const FArguments& InArgs)
 {
-	DialogueGraph = InArgs._DialogueGraph;
+	RVNEditorPtr = SharedThis(InArgs._RVNEditor);
 
 	CollectNodes();
 
@@ -155,7 +218,7 @@ void SRVNNodeList::Construct(const FArguments& InArgs)
 			.FillHeight(1.0f)
 			[
 				SNew(SScrollBox)
-				.Style(&FAppStyle::Get().GetWidgetStyle<FScrollBoxStyle>("DarkScrollBox")) // 使用深色滚动条样式  
+				.Style(&FAppStyle::Get().GetWidgetStyle<FScrollBoxStyle>("ScrollBox"))
 				+ SScrollBox::Slot()
 				[
 					SAssignNew(CategoryList, SVerticalBox)
@@ -173,7 +236,10 @@ void SRVNNodeList::OnSearchTextChanged(const FText& NewText)
 
 void SRVNNodeList::CollectNodes()
 {
-	check(DialogueGraph.IsValid())
+	if (!RVNEditorPtr.IsValid() || RVNEditorPtr.Pin()->GetRVNDialogueGraph() == nullptr)
+	{
+		return;
+	}
 
 	NodeCategories.Empty();
 
@@ -368,7 +434,7 @@ FReply SRVNNodeList::OnDragDetected(const FGeometry& MyGeometry, const FPointerE
 
 	if (NodeToDrag.IsValid())
 	{
-		return FReply::Handled().BeginDragDrop(FRVNNodeDragDropOp::New(NodeToDrag->GetClass(), DialogueGraph.Get()));
+		return FReply::Handled().BeginDragDrop(FRVNNodeDragDropOp::New(NodeToDrag->GetClass(), RVNEditorPtr));
 	}
 
 	return FReply::Unhandled();

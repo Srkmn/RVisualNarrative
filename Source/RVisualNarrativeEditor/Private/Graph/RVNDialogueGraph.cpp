@@ -4,7 +4,7 @@
 #include "Decorator/RVNDecorator.h"
 #include "Decorator/Task/RVNTask.h"
 #include "Decorator/Condition/RVNCondition.h"
-#include "Graph/Node/Slate/SRVNStateNode.h"
+#include "Graph/Node/Slate/SRVNStateWidget.h"
 
 URVNDialogueGraph::URVNDialogueGraph()
 {
@@ -12,7 +12,7 @@ URVNDialogueGraph::URVNDialogueGraph()
 
 URVNStateNode* URVNDialogueGraph::CreateStateNode(ENodeType InType, const FVector2D& InPosition)
 {
-	check(RVNCompPtr)
+	check(IsValid(RVNCompPtr));
 
 	FGraphNodeCreator<URVNStateNode> NodeCreator(*this);
 	URVNStateNode* NewNode = NodeCreator.CreateNode();
@@ -30,14 +30,16 @@ URVNStateNode* URVNDialogueGraph::CreateStateNode(ENodeType InType, const FVecto
 	return NewNode;
 }
 
-URVNDecorator* URVNDialogueGraph::CreateDecorator(const UClass* InDecoratorClass) const
+URVNDecorator* URVNDialogueGraph::CreateDecorator(const UClass* InDecoratorClass, UObject* InOuter) const
 {
-	check(RVNCompPtr)
+	check(IsValid(RVNCompPtr));
 
-	return RVNCompPtr->CreateDecorator(InDecoratorClass);
+	RVNCompPtr->SetFlags(RF_Transactional);
+	RVNCompPtr->Modify();
+	return RVNCompPtr->CreateDecorator(InDecoratorClass, InOuter);
 }
 
-void URVNDialogueGraph::ProcessPasteNodes(const TArray<URVNStateNode*>& InStateNodes)
+void URVNDialogueGraph::ProcessPasteStateNodes(const TArray<URVNStateNode*>& InStateNodes)
 {
 	TArray<URVNStateNode*> SourceNodes;
 	SourceNodes.Reserve(InStateNodes.Num());
@@ -63,6 +65,8 @@ void URVNDialogueGraph::ProcessPasteNodes(const TArray<URVNStateNode*>& InStateN
 		return;
 	}
 
+	RVNCompPtr->SetFlags(RF_Transactional);
+
 	auto DFS = [&](auto& Self, URVNStateNode* CurNode) -> int32
 	{
 		if (CurNode == nullptr)
@@ -70,29 +74,8 @@ void URVNDialogueGraph::ProcessPasteNodes(const TArray<URVNStateNode*>& InStateN
 			return INDEX_NONE;
 		}
 
-		TArray<URVNDecorator*> DecoratorsTemp;
-		for (const auto Condition : CurNode->ConditionNodes)
-		{
-			DecoratorsTemp.Add(Cast<URVNDecorator>(Condition));
-		}
-
-		for (const auto Task : CurNode->TaskNodes)
-		{
-			DecoratorsTemp.Add(Cast<URVNDecorator>(Task));
-		}
-
-		CurNode->ConditionNodes.Empty();
-		CurNode->TaskNodes.Empty();
-
 		auto& NewNodeData = RVNCompPtr->CreateNode(FVector2D(CurNode->NodePosX, CurNode->NodePosY));
-
-		NewNodeData.StateName = CurNode->StateName;
-		NewNodeData.StateContent = CurNode->StateContent;
-		NewNodeData.bIsPlayer = CurNode->bIsPlayer;
-		NewNodeData.bIsSelector = CurNode->IsSelectNode();
-
-		CurNode->SetNodeId(NewNodeData.NodeId);
-		CurNode->PasteDecorator(DecoratorsTemp);
+		CurNode->ProcessPasteStateNodes(NewNodeData);
 
 		IdToNodeMap.Add(NewNodeData.NodeId, CurNode);
 
@@ -274,19 +257,35 @@ void URVNDialogueGraph::OnPropertyChanged(const FPropertyChangedEvent& InPropert
 {
 	for (int Index = 0; Index < InPropertyChangedEvent.GetNumObjectsBeingEdited(); ++Index)
 	{
-		const URVNStateNode* CurStateNode = Cast<URVNStateNode>(InPropertyChangedEvent.GetObjectBeingEdited(Index));
-
-		if (!CurStateNode)
+		if (const auto CurStateNode = Cast<URVNStateNode>(InPropertyChangedEvent.GetObjectBeingEdited(Index)))
 		{
-			continue;
+			CurStateNode->OnPropertyEdited(InPropertyChangedEvent);
 		}
 
-		CurStateNode->OnPropertyEdited(InPropertyChangedEvent);
+		if (InPropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(URVNComponent, BlackboardData))
+		{
+			RVNEditorPtr.Pin()->InitializeBlackboard(RVNCompPtr->BlackboardData);
+		}
 	}
 }
 
 TSharedPtr<SGraphNode> URVNDialogueGraph::GetNodeWidgetFromGuid(const FGuid InGuid) const
 {
+	if (!RVNEditorPtr.IsValid())
+	{
+		return nullptr;
+	}
+
+	if (!RVNEditorPtr.Pin()->GraphEditor.IsValid())
+	{
+		return nullptr;
+	}
+
+	if (RVNEditorPtr.Pin()->GraphEditor->GetGraphPanel() == nullptr)
+	{
+		return nullptr;
+	}
+
 	return StaticCastSharedPtr<SGraphNode>(
 		RVNEditorPtr.Pin()->GraphEditor->GetGraphPanel()->GetNodeWidgetFromGuid(InGuid));
 }
@@ -310,25 +309,36 @@ void URVNDialogueGraph::SetSelectedDecorator(URVNDecorator* InDecorator)
 
 void URVNDialogueGraph::RemoveStateNode(int32 InNodeId) const
 {
+	RVNCompPtr->SetFlags(RF_Transactional);
 	RVNCompPtr->RemoveNode(InNodeId);
 }
 
 void URVNDialogueGraph::AddCondition(int32 NodeId, URVNConditionBase* Condition) const
 {
+	RVNCompPtr->SetFlags(RF_Transactional);
 	RVNCompPtr->AddCondition(NodeId, Condition);
 }
 
 void URVNDialogueGraph::RemoveCondition(int32 NodeId, URVNConditionBase* Condition) const
 {
+	RVNCompPtr->SetFlags(RF_Transactional);
 	RVNCompPtr->RemoveCondition(NodeId, Condition);
 }
 
 void URVNDialogueGraph::AddTask(int32 NodeId, URVNTaskBase* Task) const
 {
+	RVNCompPtr->SetFlags(RF_Transactional);
 	RVNCompPtr->AddTask(NodeId, Task);
 }
 
 void URVNDialogueGraph::RemoveTask(int32 NodeId, URVNTaskBase* Task) const
 {
+	RVNCompPtr->SetFlags(RF_Transactional);
 	RVNCompPtr->RemoveTask(NodeId, Task);
+}
+
+void URVNDialogueGraph::RefreshTasks(int32 InNodeId, const TArray<URVNTaskBase*>& InTaskNodes) const
+{
+	RVNCompPtr->SetFlags(RF_Transactional);
+	RVNCompPtr->OnReorderTaskNodes(InNodeId, InTaskNodes);
 }

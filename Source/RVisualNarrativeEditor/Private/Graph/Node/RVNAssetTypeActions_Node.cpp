@@ -169,7 +169,7 @@ UFactory* FAssetTypeActions_RVNConditionBlueprint::GetFactoryForBlueprintType(UB
 {
 	URVNConditionFactory* ConditionBlueprintFactory = NewObject<URVNConditionFactory>();
 
-	ConditionBlueprintFactory->ParentClass = TSubclassOf<URVNCondition>(*InBlueprint->GeneratedClass);
+	ConditionBlueprintFactory->ParentClass = TSubclassOf<URVNConditionBase>(*InBlueprint->GeneratedClass);
 
 	return ConditionBlueprintFactory;
 }

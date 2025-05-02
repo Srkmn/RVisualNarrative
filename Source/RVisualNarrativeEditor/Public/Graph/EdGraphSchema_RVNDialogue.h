@@ -2,10 +2,10 @@
 
 #include "CoreMinimal.h"
 #include "EdGraph/EdGraphSchema.h"
-#include "DialogueGraphSchema.generated.h"
+#include "EdGraphSchema_RVNDialogue.generated.h"
 
 UCLASS()
-class RVISUALNARRATIVEEDITOR_API URVNDialogueGraphSchema : public UEdGraphSchema
+class RVISUALNARRATIVEEDITOR_API UEdGraphSchema_RVNDialogue : public UEdGraphSchema
 {
 	GENERATED_BODY()
 
@@ -16,11 +16,7 @@ public:
 
 	virtual void CreateDefaultNodesForGraph(UEdGraph& Graph) const override;
 
-	// Only consider attempting to reconnect in the same direction。
 	virtual bool TryCreateConnection(UEdGraphPin* A, UEdGraphPin* B) const override;
 
-	// The connection rules of nodes have been extensively restricted for scalability,
-	// and efforts have been made to avoid the addition of new types of StateNodes that may disrupt the original rules.
-	// Therefore, only A is considered as Outerput。
 	virtual const FPinConnectionResponse CanCreateConnection(const UEdGraphPin* A, const UEdGraphPin* B) const override;
 };

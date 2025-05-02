@@ -12,7 +12,7 @@
 #include "SGraphPanel.h"
 #include "SNodePanel.h"
 #include "EditorApplicationMode/RVNEditorModes.h"
-#include "Graph/DialogueGraphSchema.h"
+#include "Graph/EdGraphSchema_RVNDialogue.h"
 #include "Graph/EventGraphSchema.h"
 #include "Graph/GraphEditorCommands.h"
 #include "Graph/RVNDialogueGraph.h"
@@ -27,6 +27,8 @@
 #include "WorkflowOrientedApp/WorkflowUObjectDocuments.h"
 #include "UEVersion.h"
 #include "DetailCustomizations/RVNBlackboardDetails.h"
+#include "Graph/RVNStateGraph.h"
+#include "Graph/Node/RVNTaskNode.h"
 #include "Tab/Slate/SRVNBlackboardEditor.h"
 #include "Tab/Slate/SRVNBlackboardView.h"
 
@@ -215,7 +217,7 @@ void FRVNEditor::CreateDialogueGraph()
 		GetRVNEditorBlueprint(),
 		DocumentName,
 		URVNDialogueGraph::StaticClass(),
-		URVNDialogueGraphSchema::StaticClass());
+		UEdGraphSchema_RVNDialogue::StaticClass());
 
 	GetRVNDialogueGraph()->RVNCompPtr = GetRVNComponent();
 
@@ -326,9 +328,15 @@ void FRVNEditor::DeleteSelectedNodesDG()
 	}
 
 	const FScopedTransaction Transaction(FGenericCommands::Get().Delete->GetDescription());
+
 	FocusedGraphEd->GetCurrentGraph()->Modify();
 
 	const auto SelectedNodes = GraphEditor->GetSelectedNodes();
+
+	if (!SelectedNodes.IsEmpty())
+	{
+		ClearDetailsView();
+	}
 
 	SetUISelectionState(NAME_None);
 
@@ -340,7 +348,13 @@ void FRVNEditor::DeleteSelectedNodesDG()
 		{
 			if (const auto StateNode = Cast<URVNStateNode>(GraphNode))
 			{
-				GetRVNComponent()->SetFlags(RF_Transactional);
+				if (const auto StateGraph = StateNode->GetStateGraph();
+					StateGraph && DocumentManager.IsValid())
+				{
+					const auto Payload = FTabPayload_UObject::Make(StateGraph);
+
+					DocumentManager->CloseTab(Payload);
+				}
 
 				GetRVNDialogueGraph()->RemoveStateNode(StateNode->GetNodeId());
 
@@ -351,6 +365,21 @@ void FRVNEditor::DeleteSelectedNodesDG()
 				GetBlueprintObj()->Modify();
 
 				FBlueprintEditorUtils::RemoveNode(GetBlueprintObj(), StateNode, true);
+			}
+			else if (const auto TaskNode = Cast<URVNTaskNode>(GraphNode))
+			{
+				if (const auto StateGraph = Cast<URVNStateGraph>(FocusedGraphEd->GetCurrentGraph()))
+				{
+					StateGraph->DeleteTaskNode(TaskNode);
+
+					bNeedToModifyStructurally = true;
+
+					AnalyticsTrackNodeEvent(GetBlueprintObj(), TaskNode, true);
+
+					GetBlueprintObj()->Modify();
+
+					FBlueprintEditorUtils::RemoveNode(GetBlueprintObj(), TaskNode, true);
+				}
 			}
 		}
 	}
@@ -370,6 +399,7 @@ void FRVNEditor::CopySelectedNodesDG()
 	const auto SelectedNodes = GraphEditor->GetSelectedNodes();
 
 	TSet<UObject*> CopyStateNodes;
+	TSet<UObject*> CopyTaskNodes;
 
 	FString ExportedText;
 
@@ -381,9 +411,15 @@ void FRVNEditor::CopySelectedNodesDG()
 
 			StateNode->PrepareForCopying();
 		}
+		else if (const auto TaskNode = Cast<URVNTaskNode>(Node))
+		{
+			CopyTaskNodes.Add(TaskNode);
+
+			TaskNode->PrepareForCopying();
+		}
 	}
 
-	FEdGraphUtilities::ExportNodesToText(CopyStateNodes, ExportedText);
+	FEdGraphUtilities::ExportNodesToText(CopyStateNodes.IsEmpty() ? CopyTaskNodes : CopyStateNodes, ExportedText);
 	FPlatformApplicationMisc::ClipboardCopy(*ExportedText);
 }
 
@@ -435,6 +471,10 @@ bool FRVNEditor::CanDeleteNodesDG() const
 					return false;
 				}
 			}
+			else if (Node->IsA(URVNTaskNode::StaticClass()))
+			{
+				return true;
+			}
 		}
 	}
 
@@ -468,6 +508,10 @@ bool FRVNEditor::CanCopyNodesDG() const
 			{
 				return false;
 			}
+		}
+		else if (const auto TaskNode = Cast<URVNTaskNode>(Node))
+		{
+			return true;
 		}
 	}
 
@@ -533,18 +577,34 @@ void FRVNEditor::PasteNodesHere(UEdGraph* DestinationGraph, const FVector2D& Gra
 
 	GraphEditor->GetGraphPanel()->Update();
 
-	TArray<URVNStateNode*> PastedStateNodes;
-
-	for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
+	if (const auto DialogueGraph = Cast<URVNDialogueGraph>(GraphEditor->GetCurrentGraph()))
 	{
-		if (const auto StateNode = Cast<URVNStateNode>(*It))
-		{
-			PastedStateNodes.Add(StateNode);
-		}
-	}
+		TArray<URVNStateNode*> PastedStateNodes;
 
-	GetRVNComponent()->SetFlags(RF_Transactional);
-	GetRVNDialogueGraph()->ProcessPasteNodes(PastedStateNodes);
+		for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
+		{
+			if (const auto StateNode = Cast<URVNStateNode>(*It))
+			{
+				PastedStateNodes.Add(StateNode);
+			}
+		}
+
+		DialogueGraph->ProcessPasteStateNodes(PastedStateNodes);
+	}
+	else if (const auto StateGraph = Cast<URVNStateGraph>(GraphEditor->GetCurrentGraph()))
+	{
+		TArray<URVNTaskNode*> PastedTaskNodes;
+
+		for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
+		{
+			if (const auto StateNode = Cast<URVNTaskNode>(*It))
+			{
+				PastedTaskNodes.Add(StateNode);
+			}
+		}
+
+		StateGraph->ProcessPasteTaskNodes(PastedTaskNodes);
+	}
 
 	FBlueprintEditorUtils::MarkBlueprintAsModified(GetBlueprintObj());
 
@@ -575,7 +635,8 @@ void FRVNEditor::PostRedo(bool bSuccess)
 
 void FRVNEditor::HandleUndoTransactionDG(const FTransaction* Transaction)
 {
-	if (const UBlueprint* BlueprintObj = GetBlueprintObj(); BlueprintObj && Transaction)
+	if (const UBlueprint* BlueprintObj = GetBlueprintObj();
+		BlueprintObj && Transaction)
 	{
 		bool bAffectsBlueprint = false;
 
@@ -600,9 +661,9 @@ void FRVNEditor::HandleUndoTransactionDG(const FTransaction* Transaction)
 			FSlateApplication::Get().DismissAllMenus();
 		}
 
-		if (DialogueGraphPtr)
+		if (GetFocusedGraph())
 		{
-			DialogueGraphPtr->NotifyGraphChanged();
+			GetFocusedGraph()->NotifyGraphChanged();
 		}
 	}
 }
@@ -610,11 +671,26 @@ void FRVNEditor::HandleUndoTransactionDG(const FTransaction* Transaction)
 
 void FRVNEditor::OpenDocument(UEdGraph* InGraph, FDocumentTracker::EOpenDocumentCause InOpenCause)
 {
-	check(InGraph != nullptr && DocumentManager.IsValid());
+	if (InGraph == nullptr || !DocumentManager.IsValid())
+	{
+		return;
+	}
 
 	const auto Payload = FTabPayload_UObject::Make(InGraph);
 
 	DocumentManager->OpenDocument(Payload, InOpenCause);
+}
+
+void FRVNEditor::CloseDocument(UEdGraph* InGraph)
+{
+	if (InGraph == nullptr || !DocumentManager.IsValid())
+	{
+		return;
+	}
+
+	const auto Payload = FTabPayload_UObject::Make(InGraph);
+
+	DocumentManager->CloseTab(Payload);
 }
 
 void FRVNEditor::OnClose()
@@ -644,7 +720,9 @@ bool FRVNEditor::CanAccessBlackboardMode() const
 
 void FRVNEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor)
 {
-	FBlueprintEditor::OnGraphEditorFocused(InGraphEditor);
+	GraphEditor = InGraphEditor;
+
+	FBlueprintEditor::OnGraphEditorFocused(GraphEditor.ToSharedRef());
 }
 
 void FRVNEditor::OnSelectedNodesChanged(const TSet<UObject*>& NewSelection)
@@ -815,6 +893,21 @@ TSharedRef<SWidget> FRVNEditor::SpawnBlackboardDetails()
 	return BlackboardDetailsView.ToSharedRef();
 }
 
+void FRVNEditor::InitializeBlackboard(URVNBlackboardData* InBlackboardData)
+{
+	BlackboardData = InBlackboardData;
+
+	if (BlackboardView.IsValid())
+	{
+		BlackboardView->SetObject(BlackboardData);
+	}
+
+	if (BlackboardEditor.IsValid())
+	{
+		BlackboardEditor->SetObject(BlackboardData);
+	}
+}
+
 void FRVNEditor::HandleBlackboardEntrySelected(const FRVNBlackboardEntry* BlackboardEntry, bool bIsInherited)
 {
 	const bool bForceRefresh = true;
@@ -872,7 +965,7 @@ void FRVNEditor::CreateInternalWidgets()
 	//if (!NodeListView.IsValid())
 	{
 		NodeListView = SNew(SRVNNodeList)
-			.DialogueGraph(Cast<URVNDialogueGraph>(DialogueGraphPtr));
+			.RVNEditor(this);
 	}
 
 	{

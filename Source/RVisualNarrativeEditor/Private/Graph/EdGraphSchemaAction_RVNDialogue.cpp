@@ -1,9 +1,9 @@
-﻿#include "Graph/DialogueGraphSchemaActions.h"
+﻿#include "Graph/EdGraphSchemaAction_RVNDialogue.h"
 
 #include "Graph/RVNDialogueGraph.h"
 #include "Graph/Node/RVNStateNode.h"
 
-UEdGraphNode* FDGSchemaStateNodeAction::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin,
+UEdGraphNode* FEdGraphSchemaAction_Dialogue_State::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin,
                                                       const FVector2D Location, bool bSelectNewNode)
 {
 	URVNDialogueGraph* CurrentGraph = CastChecked<URVNDialogueGraph>(ParentGraph);
@@ -28,7 +28,7 @@ UEdGraphNode* FDGSchemaStateNodeAction::PerformAction(class UEdGraph* ParentGrap
 	return NewStateNode;
 }
 
-UEdGraphNode* FDGSchemaSelectorNodeAction::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin,
+UEdGraphNode* FEdGraphSchemaAction_Dialogue_Selector::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin,
                                                          const FVector2D Location, bool bSelectNewNode)
 {
 	URVNDialogueGraph* CurrentGraph = CastChecked<URVNDialogueGraph>(ParentGraph);

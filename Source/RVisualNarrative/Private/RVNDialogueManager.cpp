@@ -45,8 +45,6 @@ struct FRVNBlackboardInitializationData
 
 URVNDialogueManager::URVNDialogueManager()
 	: CurrentNodeId(INDEX_NONE)
-	  , PendingProcessCount(0)
-	  , CompletedTaskCount(0)
 {
 	PrimaryComponentTick.bCanEverTick = false;
 
@@ -77,8 +75,6 @@ void URVNDialogueManager::Initialize(URVNComponent* InComponent)
 	BlackboardAsset = RVNComponent->BlackboardData;
 
 	OnDialogueCompleted.AddDynamic(RVNComponent.Get(), &URVNComponent::OnDialogueComplete);
-
-	CurrentTasks.Empty();
 
 	if (BlackboardAsset)
 	{
@@ -122,7 +118,7 @@ void URVNDialogueManager::InitializeBlackboard()
 					KeyType->PreInitialize(*this);
 
 					const uint16 KeyMemory = KeyType->GetValueSize() + (KeyType->HasInstance()
-						                                                    ? sizeof(FRVNBlackboardInitializationData)
+						                                                    ? sizeof(FRVNBlackboardInstancedKeyMemory)
 						                                                    : 0);
 
 					InitList.Add(FRVNBlackboardInitializationData(KeyIndex + It->GetFirstKeyID(), KeyMemory));
@@ -188,6 +184,155 @@ bool URVNDialogueManager::HasValidAsset() const
 	return BlackboardAsset && BlackboardAsset->IsValid();
 }
 
+FDelegateHandle URVNDialogueManager::RegisterObserver(FRVNBlackboard::FKey KeyID, UObject* NotifyOwner,
+                                                      const FOnRVNBlackboardChangeNotification& ObserverDelegate)
+{
+	for (auto It = Observers.CreateConstKeyIterator(KeyID); It; ++It)
+	{
+		if (It.Value().GetHandle() == ObserverDelegate.GetHandle())
+		{
+			return It.Value().GetHandle();
+		}
+	}
+
+	const FDelegateHandle Handle = Observers.Add(KeyID, ObserverDelegate).GetHandle();
+	ObserverHandles.Add(NotifyOwner, Handle);
+
+	return Handle;
+}
+
+void URVNDialogueManager::UnregisterObserver(FRVNBlackboard::FKey KeyID, FDelegateHandle ObserverHandle)
+{
+	for (auto It = Observers.CreateKeyIterator(KeyID); It; ++It)
+	{
+		if (It.Value().GetHandle() == ObserverHandle)
+		{
+			for (auto HandleIt = ObserverHandles.CreateIterator(); HandleIt; ++HandleIt)
+			{
+				if (HandleIt.Value() == ObserverHandle)
+				{
+					HandleIt.RemoveCurrent();
+
+					break;
+				}
+			}
+
+			// If you are observing a notification, do not delete it, but enter a waiting state for deletion
+			if (NotifyObserversRecursionCount == 0)
+			{
+				It.RemoveCurrent();
+			}
+			else if (!It.Value().bToBeRemoved)
+			{
+				It.Value().bToBeRemoved = true;
+
+				++ObserversToRemoveCount;
+			}
+			break;
+		}
+	}
+}
+
+void URVNDialogueManager::UnregisterObserversFrom(UObject* NotifyOwner)
+{
+	for (auto It = ObserverHandles.CreateKeyIterator(NotifyOwner); It; ++It)
+	{
+		for (auto ObsIt = Observers.CreateIterator(); ObsIt; ++ObsIt)
+		{
+			if (ObsIt.Value().GetHandle() == It.Value())
+			{
+				// If you are observing a notification, do not delete it, but enter a waiting state for deletion
+				if (NotifyObserversRecursionCount == 0)
+				{
+					ObsIt.RemoveCurrent();
+				}
+				else if (!ObsIt.Value().bToBeRemoved)
+				{
+					ObsIt.Value().bToBeRemoved = true;
+
+					++ObserversToRemoveCount;
+				}
+				break;
+			}
+		}
+
+		It.RemoveCurrent();
+	}
+}
+
+void URVNDialogueManager::NotifyObservers(FRVNBlackboard::FKey KeyID) const
+{
+	TMultiMap<uint8, FOnRVNBlackboardChangeNotificationInfo>::TKeyIterator KeyIt(Observers, KeyID);
+
+	if (KeyIt)
+	{
+		++NotifyObserversRecursionCount;
+		for (; KeyIt; ++KeyIt)
+		{
+			FOnRVNBlackboardChangeNotificationInfo& ObserverDelegateInfo = KeyIt.Value();
+			if (ObserverDelegateInfo.bToBeRemoved)
+			{
+				continue;
+			}
+
+			const FOnRVNBlackboardChangeNotification& ObserverDelegate = ObserverDelegateInfo.DelegateHandle;
+			const bool bWantsToContinueObserving = ObserverDelegate.IsBound() &&
+				(ObserverDelegate.Execute(*this, KeyID) == ERVNBlackboardNotificationResult::ContinueObserving);
+
+			if (bWantsToContinueObserving == false)
+			{
+				// Remove from the ObserverHandle map, if not already removed
+				if (!ObserverDelegateInfo.bToBeRemoved)
+				{
+					for (auto HandleIt = ObserverHandles.CreateIterator(); HandleIt; ++HandleIt)
+					{
+						if (HandleIt.Value() == ObserverDelegate.GetHandle())
+						{
+							HandleIt.RemoveCurrent();
+
+							break;
+						}
+					}
+				}
+
+				// If you are observing a notification, do not delete it, but enter a waiting state for deletion
+				if (NotifyObserversRecursionCount == 1)
+				{
+					KeyIt.RemoveCurrent();
+
+					if (ObserverDelegateInfo.bToBeRemoved)
+					{
+						--ObserversToRemoveCount;
+					}
+				}
+				else if (!ObserverDelegateInfo.bToBeRemoved)
+				{
+					ObserverDelegateInfo.bToBeRemoved = true;
+
+					++ObserversToRemoveCount;
+				}
+			}
+		}
+		--NotifyObserversRecursionCount;
+
+		if (NotifyObserversRecursionCount == 0 && ObserversToRemoveCount > 0)
+		{
+			for (auto ObsIt = Observers.CreateIterator(); ObsIt; ++ObsIt)
+			{
+				if (ObsIt.Value().bToBeRemoved)
+				{
+					ObsIt.RemoveCurrent();
+					if (--ObserversToRemoveCount == 0)
+					{
+						break;
+					}
+				}
+			}
+			ObserversToRemoveCount = 0;
+		}
+	}
+}
+
 URVNBlackboardData* URVNDialogueManager::GetBlackboardAsset() const
 {
 	return BlackboardAsset;
@@ -248,34 +393,9 @@ bool URVNDialogueManager::CheckAllConditions(int32 InNodeId) const
 
 	for (auto CurrentCondition : NodeData.Conditions)
 	{
-		if (CurrentCondition == nullptr)
+		if (!CheckCondition(CurrentCondition))
 		{
-			continue;
-		}
-
-		const auto ConditionClass = CurrentCondition->GetClass();
-
-		if (!ConditionClass->HasAnyClassFlags(CLASS_Native))
-		{
-			FRVNConditionParams ConditionParams;
-			ConditionParams.InRVNComponent = RVNComponent.Get();
-
-			if (const auto CheckConditionFunc = CurrentCondition->FindFunction(TEXT("CheckCondition")))
-			{
-				CurrentCondition->ProcessEvent(CheckConditionFunc, &ConditionParams);
-			}
-
-			if (!ConditionParams.bIsPass)
-			{
-				return false;
-			}
-		}
-		else
-		{
-			if (!CurrentCondition->CheckCondition_Implementation(RVNComponent.Get()))
-			{
-				return false;
-			}
+			return false;
 		}
 	}
 
@@ -290,105 +410,164 @@ void URVNDialogueManager::ProcessAllTasks(int32 InNodeId)
 		return;
 	}
 
-	if (NodeData.Tasks.IsEmpty())
-	{
-		OnTaskCompletedCallback.Broadcast();
-	}
-
-	PendingProcessCount = NodeData.Tasks.Num();
-	CompletedTaskCount = 0;
-	CurrentTasks.Empty();
-	CurrentTasks.Reserve(NodeData.Tasks.Num());
+	PendingProcessTask = nullptr;
 
 	for (auto CurrentTask : NodeData.Tasks)
 	{
-		if (CurrentTask == nullptr)
+		if (!IsValid(CurrentTask))
 		{
 			continue;
 		}
 
-		CurrentTasks.Add(CurrentTask);
+		if (CheckAllConditions(CurrentTask))
+		{
+			PendingProcessTask = CurrentTask;
+
+			break;
+		}
 	}
 
-	// OnState
-	for (const auto CurrentTask : CurrentTasks)
+	if (!IsValid(PendingProcessTask))
 	{
-		const auto TaskClass = CurrentTask->GetClass();
+		OnTaskCompletedCallback.Broadcast();
+
+		return;
+	}
+
+	ProcessTask(PendingProcessTask);
+}
+
+void URVNDialogueManager::BreakCurrentDialogue()
+{
+	if (!IsValid(PendingProcessTask))
+	{
+		return;
+	}
+
+	if (const auto TaskClass = PendingProcessTask->GetClass())
+	{
+		if (const auto AsyncTask = Cast<URVNAsyncTask>(PendingProcessTask))
+		{
+			if (!TaskClass->HasAnyClassFlags(CLASS_Native))
+			{
+				FRVNTaskParams ConditionParams;
+				ConditionParams.InRVNComponent = RVNComponent.Get();
+
+				if (const auto ExecuteTaskFunc = AsyncTask->FindFunction(TEXT("BreakAsyncTask")))
+				{
+					AsyncTask->ProcessEvent(ExecuteTaskFunc, &ConditionParams);
+				}
+			}
+			else
+			{
+				AsyncTask->BreakAsyncTask_Implementation(RVNComponent.Get());
+			}
+		}
+	}
+}
+
+void URVNDialogueManager::ProcessTask(URVNTaskBase* InTask)
+{
+	// OnStart
+	if (const auto TaskClass = InTask->GetClass())
+	{
+		if (!TaskClass->HasAnyClassFlags(CLASS_Native))
+		{
+			FRVNTaskParams ConditionParams;
+			ConditionParams.InRVNComponent = RVNComponent.Get();
+
+			if (const auto StartTaskFunc = InTask->FindFunction(TEXT("OnStart")))
+			{
+				InTask->ProcessEvent(StartTaskFunc, &ConditionParams);
+			}
+		}
+		else
+		{
+			InTask->OnStart_Implementation(RVNComponent.Get());
+		}
+	}
+
+	// ExecuteTask
+	if (const auto TaskClass = InTask->GetClass())
+	{
+		if (const auto AsyncTask = Cast<URVNAsyncTask>(InTask))
+		{
+			AsyncTask->GetCompletedCallback().BindUObject(this, &URVNDialogueManager::OnTaskCompleted, InTask);
+		}
 
 		if (!TaskClass->HasAnyClassFlags(CLASS_Native))
 		{
 			FRVNTaskParams ConditionParams;
 			ConditionParams.InRVNComponent = RVNComponent.Get();
 
-			if (const auto StartTaskFunc = CurrentTask->FindFunction(TEXT("OnStart")))
+			if (const auto ExecuteTaskFunc = InTask->FindFunction(TEXT("ExecuteTask")))
 			{
-				CurrentTask->ProcessEvent(StartTaskFunc, &ConditionParams);
+				InTask->ProcessEvent(ExecuteTaskFunc, &ConditionParams);
 			}
 		}
 		else
 		{
-			CurrentTask->OnStart_Implementation(RVNComponent.Get());
+			InTask->ExecuteTask_Implementation(RVNComponent.Get());
 		}
-	}
 
-	// ExecuteTask
-	for (const auto CurrentTask : CurrentTasks)
-	{
-		if (const auto TaskClass = CurrentTask->GetClass())
+		if (const auto SyncTask = Cast<URVNSyncTask>(InTask))
 		{
-			if (const auto AsyncTask = Cast<URVNAsyncTask>(CurrentTask))
-			{
-				AsyncTask->GetCompletedCallback().BindUObject(this, &URVNDialogueManager::OnTaskCompleted, CurrentTask);
-			}
-
-			if (!TaskClass->HasAnyClassFlags(CLASS_Native))
-			{
-				FRVNTaskParams ConditionParams;
-				ConditionParams.InRVNComponent = RVNComponent.Get();
-
-				if (const auto ExecuteTaskFunc = CurrentTask->FindFunction(TEXT("ExecuteTask")))
-				{
-					CurrentTask->ProcessEvent(ExecuteTaskFunc, &ConditionParams);
-				}
-			}
-			else
-			{
-				CurrentTask->ExecuteTask_Implementation(RVNComponent.Get());
-			}
-
-			if (const auto SyncTask = Cast<URVNSyncTask>(CurrentTask))
-			{
-				OnTaskCompleted(SyncTask);
-			}
+			OnTaskCompleted(SyncTask);
 		}
 	}
 }
 
-void URVNDialogueManager::BreakCurrentDialogue()
+bool URVNDialogueManager::CheckAllConditions(URVNTaskBase* InTask) const
 {
-	for (const auto CurrentTask : CurrentTasks)
+	if (!IsValid(InTask))
 	{
-		if (const auto TaskClass = CurrentTask->GetClass())
-		{
-			if (const auto AsyncTask = Cast<URVNAsyncTask>(CurrentTask))
-			{
-				if (!TaskClass->HasAnyClassFlags(CLASS_Native))
-				{
-					FRVNTaskParams ConditionParams;
-					ConditionParams.InRVNComponent = RVNComponent.Get();
+		return false;
+	}
 
-					if (const auto ExecuteTaskFunc = AsyncTask->FindFunction(TEXT("BreakAsyncTask")))
-					{
-						AsyncTask->ProcessEvent(ExecuteTaskFunc, &ConditionParams);
-					}
-				}
-				else
-				{
-					AsyncTask->BreakAsyncTask_Implementation(RVNComponent.Get());
-				}
-			}
+	for (const auto Condition : InTask->GetConditions())
+	{
+		if (!CheckCondition(Condition))
+		{
+			return false;
 		}
 	}
+
+	return true;
+}
+
+bool URVNDialogueManager::CheckCondition(URVNConditionBase* InCondition) const
+{
+	if (!IsValid(InCondition))
+	{
+		return true;
+	}
+
+	const auto ConditionClass = InCondition->GetClass();
+
+	if (!ConditionClass->HasAnyClassFlags(CLASS_Native))
+	{
+		FRVNConditionParams ConditionParams;
+		ConditionParams.InRVNComponent = RVNComponent.Get();
+
+		if (const auto CheckConditionFunc = InCondition->FindFunction(TEXT("CheckCondition")))
+		{
+			InCondition->ProcessEvent(CheckConditionFunc, &ConditionParams);
+		}
+
+		if (!ConditionParams.bIsPass)
+		{
+			return false;
+		}
+	}
+	else
+	{
+		if (!InCondition->CheckCondition_Implementation(RVNComponent.Get()))
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 bool URVNDialogueManager::IsCompatibleWith(URVNBlackboardData* TestAsset) const
@@ -609,6 +788,7 @@ void URVNDialogueManager::ClearValue(FRVNBlackboard::FKey KeyID)
 		if (EntryInfo->KeyType->WrappedIsEmpty(*this, RawData) == false)
 		{
 			EntryInfo->KeyType->WrappedClear(*this, RawData);
+			NotifyObservers(KeyID);
 
 			if (BlackboardAsset->HasSynchronizedKeys() && IsKeyInstanceSynced(KeyID))
 			{
@@ -623,7 +803,7 @@ void URVNDialogueManager::ClearValue(FRVNBlackboard::FKey KeyID)
 				for (auto Iter = BlackboardDataToManagersMap.CreateIterator(); Iter; ++Iter)
 				{
 					URVNBlackboardData* OtherBlackboardAsset = Iter.Key().Get();
-					if (OtherBlackboardAsset == nullptr)
+					if (!IsValid(OtherBlackboardAsset))
 					{
 						continue;
 					}
@@ -664,6 +844,7 @@ void URVNDialogueManager::ClearValue(FRVNBlackboard::FKey KeyID)
 							uint8* OtherRawData = OtherManager->GetKeyRawData(OtherKeyID) + DataOffset;
 
 							OtherKeyOb->CopyValues(*OtherManager, OtherRawData, KeyOb, InstancedRawData);
+							OtherManager->NotifyObservers(OtherKeyID);
 						}
 					}
 				}
@@ -675,7 +856,7 @@ void URVNDialogueManager::ClearValue(FRVNBlackboard::FKey KeyID)
 bool URVNDialogueManager::CopyKeyValue(FRVNBlackboard::FKey SourceKeyID, FRVNBlackboard::FKey DestinationKeyID)
 {
 	URVNBlackboardData* BBAsset = GetBlackboardAsset();
-	if (BBAsset == nullptr)
+	if (!IsValid(BBAsset))
 	{
 		return false;
 	}
@@ -757,7 +938,7 @@ void URVNDialogueManager::PopulateSynchronizedKeys()
 	for (auto Iter = BlackboardDataToManagersMap.CreateIterator(); Iter; ++Iter)
 	{
 		URVNBlackboardData* OtherBlackboardAsset = Iter.Key().Get();
-		if (OtherBlackboardAsset == nullptr)
+		if (!IsValid(OtherBlackboardAsset))
 		{
 			continue;
 		}
@@ -834,38 +1015,49 @@ bool URVNDialogueManager::ShouldSyncWithBlackboard(URVNDialogueManager& OtherMan
 
 void URVNDialogueManager::OnTaskCompleted(URVNTaskBase* CompletedTask)
 {
-	CompletedTaskCount++;
-
-	if (const auto AsyncTask = Cast<URVNAsyncTask>(CompletedTask))
+	if (const auto AsyncTask = Cast<URVNAsyncTask>(CompletedTask);
+		AsyncTask && AsyncTask->GetCompletedCallback().IsBoundToObject(this))
 	{
 		AsyncTask->GetCompletedCallback().Unbind();
 	}
 
-	if (CompletedTaskCount >= PendingProcessCount)
+	if (const auto TaskClass = CompletedTask->GetClass())
 	{
-		for (const auto CurrentTask : CurrentTasks)
+		if (!TaskClass->HasAnyClassFlags(CLASS_Native))
 		{
-			if (const auto TaskClass = CurrentTask->GetClass())
-			{
-				if (!TaskClass->HasAnyClassFlags(CLASS_Native))
-				{
-					FRVNTaskParams ConditionParams;
-					ConditionParams.InRVNComponent = RVNComponent.Get();
+			FRVNTaskParams ConditionParams;
+			ConditionParams.InRVNComponent = RVNComponent.Get();
 
-					if (const auto EndTaskFunc = CurrentTask->FindFunction(TEXT("OnEnd")))
-					{
-						CurrentTask->ProcessEvent(EndTaskFunc, &ConditionParams);
-					}
-				}
-				else
-				{
-					CurrentTask->OnEnd_Implementation(RVNComponent.Get());
-				}
+			if (const auto EndTaskFunc = CompletedTask->FindFunction(TEXT("OnEnd")))
+			{
+				CompletedTask->ProcessEvent(EndTaskFunc, &ConditionParams);
 			}
 		}
-
-		CurrentTasks.Empty();
-
-		OnTaskCompletedCallback.Broadcast();
+		else
+		{
+			CompletedTask->OnEnd_Implementation(RVNComponent.Get());
+		}
 	}
+
+	TryProcessNextTask();
+}
+
+void URVNDialogueManager::TryProcessNextTask()
+{
+	if (IsValid(PendingProcessTask) && !PendingProcessTask->GetChildren().IsEmpty())
+	{
+		for (URVNTaskBase* ChildTask : PendingProcessTask->GetChildren())
+		{
+			if (CheckAllConditions(ChildTask))
+			{
+				PendingProcessTask = ChildTask;
+
+				ProcessTask(PendingProcessTask);
+
+				return;
+			}
+		}
+	}
+
+	OnTaskCompletedCallback.Broadcast();
 }

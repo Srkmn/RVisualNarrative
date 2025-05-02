@@ -2,12 +2,10 @@
 #include "Modules/ModuleManager.h"
 #include "AssetToolsModule.h"
 #include "EdGraphUtilities.h"
+#include "ToolMenus.h"
 #include "RVNEditorCommands.h"
 #include "RVNEditorStyle.h"
-#include "ToolMenus.h"
 #include "ClassCollector/RVNClassCollector.h"
-#include "Graph/RVNGraphPanelFactories.h"
-#include "Graph/Node/RVNAssetTypeActions_Node.h"
 #include "Blueprint/RVNConditionNodeBlueprint.h"
 #include "Blueprint/RVNTaskNodeBlueprint.h"
 #include "Settings/RVisualNarrativeEditorSetting.h"
@@ -15,6 +13,13 @@
 #include "Toolbar/RVNPlayToolBar.h"
 #include "AssetTypeActions_RVNBlackboard.h"
 #include "AssetTypeActions_RVNComponent.h"
+#include "Decorator/Condition/RVNCondition.h"
+#include "Decorator/Task/RVNTask.h"
+#include "Graph/RVNGraphPanelFactories.h"
+#include "Graph/Node/RVNAssetTypeActions_Node.h"
+#include "Graph/Node/RVNDecoratorItemFactory.h"
+#include "Graph/Node/Slate/InternalWidget/SRVNConditionItemWidget.h"
+#include "Graph/Node/Slate/InternalWidget/SRVNTaskItemWidget.h"
 
 #define LOCTEXT_NAMESPACE "FRVisualNarrativeEditorModule"
 
@@ -47,6 +52,9 @@ void FRVisualNarrativeEditorModule::StartupModule()
 	RegisterRVNAsset();
 
 	FEdGraphUtilities::RegisterVisualNodeFactory(MakeShared<FRVNGraphNodeFactory>());
+
+	FRVNDecoratorItemFactory::RegisterDecoratorItemClass<URVNTaskBase, SRVNTaskItemWidget>();
+	FRVNDecoratorItemFactory::RegisterDecoratorItemClass<URVNConditionBase, SRVNConditionItemWidget>();
 }
 
 void FRVisualNarrativeEditorModule::ShutdownModule()

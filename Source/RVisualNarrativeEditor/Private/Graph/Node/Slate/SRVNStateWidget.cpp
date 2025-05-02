@@ -1,11 +1,11 @@
-﻿#include "Graph/Node/Slate/SRVNStateNode.h"
+﻿#include "Graph/Node/Slate/SRVNStateWidget.h"
 #include "SGraphPin.h"
 #include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "Graph/Node/RVNStateNode.h"
 #include "Graph/Node/Slate/SRVNStatePin.h"
 #include "Graph/Node/Slate/InternalWidget/SRVNStateInternal_Decorator.h"
 #include "Decorator/Condition/RVNCondition.h"
-#include "Decorator/Task/RVNTask.h"
+#include "Brushes/SlateColorBrush.h"
 #include "UEVersion.h"
 
 class SRVNNodeIndex : public SCompoundWidget
@@ -76,7 +76,6 @@ void SRVNStateWidget::Construct(const FArguments& InArgs, URVNStateNode* InNode)
 
 	bIsDialogSlotExpanded = false;
 	bIsNodeSlot1Expanded = false;
-	bIsNodeSlot2Expanded = false;
 
 	UpdateGraphNode();
 }
@@ -89,8 +88,6 @@ void SRVNStateWidget::UpdateDelegate(URVNStateNode* InNode)
 	StateNode->OnNodeIdChangedCallback.BindRaw(this, &SRVNStateWidget::HandleNodeIdChanged);
 	StateNode->OnAddConditionCallback.BindRaw(this, &SRVNStateWidget::HandleAddCondition);
 	StateNode->OnRemoveConditionCallback.BindRaw(this, &SRVNStateWidget::HandleRemoveCondition);
-	StateNode->OnAddTaskCallback.BindRaw(this, &SRVNStateWidget::HandleAddTask);
-	StateNode->OnRemoveTaskCallback.BindRaw(this, &SRVNStateWidget::HandleRemoveTask);
 }
 
 void SRVNStateWidget::UpdateGraphNode()
@@ -298,24 +295,10 @@ TSharedRef<SWidget> SRVNStateWidget::CreateNodeContent()
 	      .AutoHeight()
 	      .Padding(0, 2)
 	[
-		CreateNodeSlot(NodeSlot2Box,
-		               bIsNodeSlot2Expanded,
-		               FText::FromString("Task Slot"),
-		               FOnClicked::CreateSP(this, &SRVNStateWidget::OnNodeSlot2ExpandClicked))
+		CreateStateGraphSlot()
 	];
 
-	for (const auto& Task : StateNode->GetTaskNodes())
-	{
-		if (Task == nullptr)
-		{
-			continue;
-		}
-
-		HandleAddTask(Task);
-	}
-
 	OnConditionSlotExpandedChanged(false);
-	OnTaskSlotExpandedChanged(false);
 
 	return Widget;
 }
@@ -481,6 +464,78 @@ TSharedRef<SWidget> SRVNStateWidget::CreateNodeSlot(
 		];
 }
 
+TSharedRef<SWidget> SRVNStateWidget::CreateStateGraphSlot()
+{
+	static FButtonStyle CustomButtonStyle = FButtonStyle()
+	                                        .SetNormal(FSlateColorBrush(FLinearColor(0.0f, 0.0f, 0.0f, 0.0f)))
+	                                        .SetHovered(FSlateColorBrush(FLinearColor(0.2f, 0.2f, 0.4f, 0.3f)))
+	                                        .SetPressed(FSlateColorBrush(FLinearColor(0.2f, 0.2f, 0.5f, 0.4f)))
+	                                        .SetNormalPadding(FMargin(0))
+	                                        .SetPressedPadding(FMargin(0));
+
+	return SNew(SBorder)
+		.BorderImage(FAppStyle::Get().GetBrush("Graph.Node.Body"))
+		.BorderBackgroundColor(FLinearColor(0.15f, 0.15f, 0.15f, 0.6f))
+		.Padding(5)
+		[
+			SNew(SButton)
+			.ButtonStyle(&CustomButtonStyle)
+			.OnClicked(this, &SRVNStateWidget::OnOpenStateGraphClicked)
+			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Center)
+			.ContentPadding(FMargin(0))
+			[
+				SNew(SBorder)
+				.BorderImage(
+#if UE_APP_STYLE_GET_BRUSH
+                    FAppStyle::Get().GetBrush
+#else
+					FEditorStyle::GetBrush
+#endif
+					("Graph.CollapsedNode.Body")
+				)
+				.Padding(FMargin(20, 14))
+				[
+					SNew(SOverlay)
+					+ SOverlay::Slot()
+					[
+						SNew(SImage)
+						.Image(
+#if UE_APP_STYLE_GET_BRUSH
+                            FAppStyle::Get().GetBrush("Graph.CollapsedNode.BodyColorSpill")  
+#else
+							FEditorStyle::GetBrush("Graph.CollapsedNode.BodyColorSpill")
+#endif
+						)
+						.ColorAndOpacity(FLinearColor(0.1f, 0.1f, 0.1f, 0.7f))
+					]
+					+ SOverlay::Slot()
+					[
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Center)
+						.Padding(0)
+						[
+							SNew(STextBlock)
+							.Text(FText::FromString("State Machine"))
+							.Font(
+#if UE_APP_STYLE_GET_FONT_STYLE
+                                FAppStyle::Get().GetFontStyle("NormalFont")  
+#else
+								FEditorStyle::GetFontStyle("NormalFont")
+#endif
+							)
+							.ColorAndOpacity(FLinearColor(0.8f, 0.8f, 0.6f))
+							.Justification(ETextJustify::Center)
+						]
+					]
+				]
+			]
+		];
+}
+
 FReply SRVNStateWidget::OnDialogSlotExpandClicked()
 {
 	bIsDialogSlotExpanded = !bIsDialogSlotExpanded;
@@ -511,11 +566,16 @@ FReply SRVNStateWidget::OnNodeSlot1ExpandClicked()
 	return FReply::Handled();
 }
 
-FReply SRVNStateWidget::OnNodeSlot2ExpandClicked()
+FReply SRVNStateWidget::OnOpenStateGraphClicked()
 {
-	OnTaskSlotExpandedChanged(!bIsNodeSlot2Expanded);
+	if (StateNode.IsValid())
+	{
+		StateNode->OpenStateGraph();
 
-	return FReply::Handled();
+		return FReply::Handled();
+	}
+
+	return FReply::Unhandled();
 }
 
 void SRVNStateWidget::OnConditionSlotExpandedChanged(bool bIsExpanded)
@@ -540,31 +600,6 @@ void SRVNStateWidget::OnConditionSlotExpandedChanged(bool bIsExpanded)
 		};
 
 		ToggleVisibility(NodeSlot1Box, bIsNodeSlot1Expanded);
-	}
-}
-
-void SRVNStateWidget::OnTaskSlotExpandedChanged(bool bIsExpanded)
-{
-	if (bIsNodeSlot2Expanded == bIsExpanded)
-	{
-		return;
-	}
-
-	bIsNodeSlot2Expanded = !bIsNodeSlot2Expanded;
-
-	if (NodeSlot2Box.IsValid())
-	{
-		auto ToggleVisibility = [](TSharedPtr<SVerticalBox> Box, bool bExpanded)
-		{
-			for (int32 i = 1; i < Box->GetChildren()->Num(); ++i)
-			{
-				Box->GetChildren()->GetChildAt(i)->SetVisibility(
-					bExpanded ? EVisibility::Visible : EVisibility::Collapsed
-				);
-			}
-		};
-
-		ToggleVisibility(NodeSlot2Box, bIsNodeSlot2Expanded);
 	}
 }
 
@@ -630,38 +665,6 @@ void SRVNStateWidget::HandleRemoveCondition(URVNConditionBase* ConditionInfo)
 		return;
 
 	NodeSlot1Box->RemoveSlot(ConditionSlotItems[ConditionInfo].ToSharedRef());
-}
-
-void SRVNStateWidget::HandleAddTask(URVNTaskBase* TaskInfo)
-{
-	if (!NodeSlot2Box.IsValid())
-		return;
-
-	TSharedRef<SWidget> NewItemWidget = CreateSlotItemWidget(TaskInfo);
-
-	const auto TaskWidget = StaticCastSharedRef<SRVNStateInternal_Decorator>(NewItemWidget);
-
-	TaskWidget->OnSelectedDecorator.BindUObject(StateNode.Get(), &URVNStateNode::OnSelectedDecorator);
-	TaskWidget->OnDeleteRequested.BindUObject(StateNode.Get(), &URVNStateNode::RemoveDecorator);
-
-	TaskSlotItems.Add(TaskInfo, NewItemWidget);
-
-	NodeSlot2Box->AddSlot()
-	            .AutoHeight()
-	            .Padding(0.f, 5.f, 0.f, 0.f)
-	[
-		NewItemWidget
-	];
-
-	OnTaskSlotExpandedChanged(true);
-}
-
-void SRVNStateWidget::HandleRemoveTask(URVNTaskBase* TaskInfo)
-{
-	if (!NodeSlot2Box.IsValid())
-		return;
-
-	NodeSlot2Box->RemoveSlot(TaskSlotItems[TaskInfo].ToSharedRef());
 }
 
 TSharedRef<SWidget> SRVNStateWidget::CreateSlotItemWidget(URVNDecorator* InItem)

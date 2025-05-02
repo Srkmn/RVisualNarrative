@@ -1,8 +1,11 @@
 ﻿#include "Graph/RVNGraphPanelFactories.h"
 #include "EdGraph/EdGraphNode.h"
+#include "Graph/Node/RVNEntryNode.h"
 #include "Graph/Node/RVNStateNode.h"
-#include "Graph/Node/Slate/SRVNStateNode.h"
-#include "Graph/Node/Slate/SRVNStatePin.h"
+#include "Graph/Node/RVNTaskNode.h"
+#include "Graph/Node/Slate/SRVNEntryWidget.h"
+#include "Graph/Node/Slate/SRVNStateWidget.h"
+#include "Graph/Node/Slate/SRVNTaskWidget.h"
 
 TSharedPtr<SGraphNode> FRVNGraphNodeFactory::CreateNode(UEdGraphNode* InNode) const
 {
@@ -11,10 +14,15 @@ TSharedPtr<SGraphNode> FRVNGraphNodeFactory::CreateNode(UEdGraphNode* InNode) co
 		return SNew(SRVNStateWidget, StateNode);
 	}
 
-	return nullptr;
-}
+	if (URVNEntryNode* EntryNode = Cast<URVNEntryNode>(InNode))
+	{
+		return SNew(SRVNEntryWidget, EntryNode);
+	}
 
-TSharedPtr<SGraphPin> FRVNStatePinFactory::CreatePin(UEdGraphPin* InPin) const
-{
-	return SNew(SRVNStatePin, InPin);
+	if (URVNTaskNode* TaskNode = Cast<URVNTaskNode>(InNode))
+	{
+		return SNew(SRVNTaskWidget, TaskNode);
+	}
+
+	return nullptr;
 }

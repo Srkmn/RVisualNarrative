@@ -2,9 +2,15 @@
 #include "EdGraph/EdGraphPin.h"
 #include "Styling/SlateTypes.h"
 #include "RVNComponent.h"
+#include "RVNEditor.h"
 #include "Decorator/Condition/RVNCondition.h"
 #include "Decorator/Task/RVNTask.h"
+#include "Graph/EdGraphSchema_RVNState.h"
 #include "Graph/RVNDialogueGraph.h"
+#include "Graph/RVNStateGraph.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+
+#define LOCTEXT_NAMESPACE "RVNStateNode"
 
 URVNStateNode::URVNStateNode()
 {
@@ -55,6 +61,27 @@ void URVNStateNode::SetDialogText(const FString& NewText)
 	OnDialogueContentChanged();
 }
 
+void URVNStateNode::ProcessPasteStateNodes(FRVNNodeData& InNodeData)
+{
+	InNodeData.StateName = StateName;
+	InNodeData.StateContent = StateContent;
+	InNodeData.bIsPlayer = bIsPlayer;
+	InNodeData.bIsSelector = IsSelectNode();
+	SetNodeId(InNodeData.NodeId);
+
+	TArray<URVNDecorator*> Decorators;
+	for (const auto It : ConditionNodes)
+	{
+		Decorators.Add(It);
+	}
+
+	ConditionNodes.Reset();
+
+	PasteDecorator(Decorators);
+
+	GetStateGraph()->ProcessPasteTaskNodes();
+}
+
 void URVNStateNode::PasteDecorator(const TArray<URVNDecorator*>& InDecorator)
 {
 	for (const auto Decorator : InDecorator)
@@ -63,9 +90,11 @@ void URVNStateNode::PasteDecorator(const TArray<URVNDecorator*>& InDecorator)
 	}
 }
 
-void URVNStateNode::PasteDecorator(const URVNDecorator* InDecorator)
+void URVNStateNode::PasteDecorator(URVNDecorator* InDecorator)
 {
-	AddDecorator(RVNDialogueGraph->CreateDecorator(InDecorator->GetClass()));
+	URVNDecorator* PastedDecorator = InDecorator->PasteDecorator();
+
+	AddDecorator(PastedDecorator);
 }
 
 void URVNStateNode::OnSelectedDecorator(URVNDecorator* InDecorator)
@@ -90,6 +119,7 @@ void URVNStateNode::AddDecorator(URVNDecorator* InDecorator)
 		return;
 	}
 
+	SetFlags(RF_Transactional);
 	Modify();
 
 	if (auto Condition = Cast<URVNConditionBase>(InDecorator))
@@ -138,21 +168,18 @@ void URVNStateNode::AddTask(URVNTaskBase* InTask)
 		return;
 	}
 
-	if (TaskNodes.Contains(InTask))
-	{
-		return;
-	}
-
 	if (GetDialogueGraph() == nullptr)
 	{
 		return;
 	}
 
-	TaskNodes.Add(InTask);
-
 	GetDialogueGraph()->AddTask(NodeId, InTask);
+}
 
-	OnAddTaskCallback.ExecuteIfBound(InTask);
+void URVNStateNode::AddTaskReference(URVNTaskBase* InTask)
+{
+	GetDialogueGraph()->RVNCompPtr->SetFlags(RF_Transactional);
+	GetDialogueGraph()->RVNCompPtr->AddTaskReference(NodeId, InTask);
 }
 
 void URVNStateNode::RemoveDecorator(URVNDecorator* InDecorator)
@@ -162,6 +189,7 @@ void URVNStateNode::RemoveDecorator(URVNDecorator* InDecorator)
 		return;
 	}
 
+	SetFlags(RF_Transactional);
 	Modify();
 
 	if (auto Condition = Cast<URVNConditionBase>(InDecorator))
@@ -208,14 +236,14 @@ void URVNStateNode::RemoveTask(URVNTaskBase* InTask)
 		return;
 	}
 
-	if (!TaskNodes.Remove(InTask))
-	{
-		return;
-	}
-
 	GetDialogueGraph()->RemoveTask(NodeId, InTask);
 
-	OnRemoveTaskCallback.ExecuteIfBound(InTask);
+	RVNDialogueGraph->RVNCompPtr->RemoveTaskReference(GetNodeId(), InTask);
+}
+
+void URVNStateNode::OnReorderTaskNodes(const TArray<URVNTaskBase*>& InTaskNodes)
+{
+	GetDialogueGraph()->RefreshTasks(NodeId, InTaskNodes);
 }
 
 int32 URVNStateNode::GetNodeId() const
@@ -268,7 +296,6 @@ void URVNStateNode::PinConnectionListChanged(UEdGraphPin* Pin)
 
 	TArray<int32> NextNodesId;
 
-	// 遍历输出引脚的连接  
 	if (UEdGraphPin* OutputPin = FindPin(TEXT("Out")))
 	{
 		for (UEdGraphPin* LinkedTo : OutputPin->LinkedTo)
@@ -383,3 +410,42 @@ URVNDialogueGraph* URVNStateNode::GetDialogueGraph()
 
 	return RVNDialogueGraph.Get();
 }
+
+TObjectPtr<URVNStateGraph> URVNStateNode::GetStateGraph()
+{
+	return StateGraph.Get();
+}
+
+void URVNStateNode::OpenStateGraph()
+{
+	FDocumentTracker::EOpenDocumentCause Cause = FDocumentTracker::EOpenDocumentCause::RestorePreviousDocument;
+
+	if (!IsValid(StateGraph))
+	{
+		const FText DocumentNameText = LOCTEXT("StateGraphTabName", "StateGraph");
+
+		const FName DocumentName = FName(*DocumentNameText.ToString());
+
+		StateGraph = Cast<URVNStateGraph>(
+			FBlueprintEditorUtils::CreateNewGraph(
+				this,
+				DocumentName,
+				URVNStateGraph::StaticClass(),
+				UEdGraphSchema_RVNState::StaticClass()));
+
+		StateGraph->OwnerStateNode = this;
+
+		StateGraph->GetSchema()->CreateDefaultNodesForGraph(*StateGraph);
+
+		Cause = FDocumentTracker::EOpenDocumentCause::OpenNewDocument;
+	}
+
+	if (RVNDialogueGraph.IsValid() && RVNDialogueGraph->RVNEditorPtr.IsValid())
+	{
+		RVNDialogueGraph->RVNEditorPtr.Pin()->CreateRVNGraphEditorWidget(StateGraph);
+
+		RVNDialogueGraph->RVNEditorPtr.Pin()->OpenDocument(StateGraph, Cause);
+	}
+}
+
+#undef LOCTEXT_NAMESPACE
