@@ -58,8 +58,8 @@ public:
 
 private:
 	UPROPERTY()
-	TWeakObjectPtr<URVNStateNode> OwnerState;
+	TObjectPtr<URVNStateNode> OwnerState;
 
 	UPROPERTY()
-	TWeakObjectPtr<URVNTaskBase> OwnerTask;
+	TObjectPtr<URVNTaskBase> OwnerTask;
 };
