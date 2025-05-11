@@ -24,7 +24,7 @@ TSharedRef<FRVNNodeDragDropOp> FRVNNodeDragDropOp::New(UClass* InNodeClass, TWea
 
 	Operation->DecoratorWidget =
 		SNew(SBorder)
-		.BorderImage(FAppStyle::Get().GetBrush("Graph.Node.Body"))
+		.BorderImage(FAppStyle::Get().GetBrush("WhiteBrush"))
 		.BorderBackgroundColor(FLinearColor(0.3f, 0.3f, 0.3f, 0.7f))
 		.Padding(FMargin(4.0f))
 		[
@@ -320,8 +320,8 @@ void SRVNNodeList::RefreshList()
 TSharedRef<SWidget> SRVNNodeList::CreateCategoryWidget(TSharedPtr<FRVNNodeCategory> Category)
 {
 	return SNew(SExpandableArea)
-		.BorderBackgroundColor(FLinearColor(0.1f, 0.1f, 0.1f, 0.3f))
-		.BorderImage(FAppStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+		.BorderBackgroundColor(FLinearColor(0.1f, 0.1f, 0.1f, 0.8f))
+		.BorderImage(FAppStyle::Get().GetBrush("WhiteBrush"))
 		.HeaderContent()
 		[
 			SNew(STextBlock)
@@ -365,11 +365,11 @@ TSharedRef<SWidget> SRVNNodeList::CreateNodeWidget(TSharedPtr<FRVNClassInfo> Nod
 {
 	TSharedRef<SWidget> NewNodeWidget =
 		SNew(SBorder)
-		.BorderImage(FAppStyle::Get().GetBrush("ToolPanel.DarkGroupBorder"))
+		.BorderImage(FAppStyle::Get().GetBrush("WhiteBrush"))
 		.BorderBackgroundColor_Lambda([NodeInfo, this]() -> FSlateColor
 		{
 			return HoveredNode == NodeInfo
-				       ? FLinearColor(0.4f, 0.4f, 1.0f, 0.4f)
+				       ? FLinearColor(0.1f, 0.1f, 0.1f, 1.f)
 				       : FLinearColor(0.2f, 0.2f, 0.2f, 0.2f);
 		})
 		.ToolTipText(FText::FromString(NodeInfo->ClassName))
@@ -423,6 +423,8 @@ FReply SRVNNodeList::OnMouseButtonDown(const FGeometry& MyGeometry, const FPoint
 		{
 			return FReply::Handled().DetectDrag(SharedThis(this), EKeys::LeftMouseButton);
 		}
+
+		HoveredNode = nullptr;
 	}
 
 	return FReply::Unhandled();
