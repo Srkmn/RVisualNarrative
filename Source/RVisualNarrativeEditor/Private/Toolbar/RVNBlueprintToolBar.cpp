@@ -47,12 +47,7 @@ void FRVNBlueprintToolBar::BuildAction()
 				return;
 			}
 
-			if (Blueprint->GeneratedClass->ClassDefaultObject == nullptr)
-			{
-				return;
-			}
-
-			if (const auto RVNComponent = Cast<URVNComponent>(Blueprint->GeneratedClass->ClassDefaultObject))
+			if (const auto RVNComponent = Cast<URVNComponent>(Blueprint->GeneratedClass->GetDefaultObject()))
 			{
 				FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint.Get());
 

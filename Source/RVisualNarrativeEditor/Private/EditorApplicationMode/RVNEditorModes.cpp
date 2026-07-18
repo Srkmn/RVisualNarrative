@@ -6,6 +6,7 @@
 #include "Tab/RVNEditorTabFactories.h"
 #include "Tab/RVNEditorTabsID.h"
 #include "Toolbar/RVNEditorToolbar.h"
+#include "UEVersion.h"
 
 #define LOCTEXT_NAMESPACE "RVNEditorMode"
 
@@ -96,7 +97,9 @@ void FRVNDialogueMode::RegisterTabFactories(TSharedPtr<FTabManager> InTabManager
 
 	RVNEditorPtr->PushTabFactories(RVNDialogueTabFactories);
 
+	#if !UE_APPLICATION_MODE_REGISTER_TAB_FACTORIES_PRIVATE
 	FApplicationMode::RegisterTabFactories(InTabManager);
+	#endif
 }
 
 void FRVNDialogueMode::PreDeactivateMode()
@@ -233,7 +236,9 @@ void FRVNEventMode::RegisterTabFactories(TSharedPtr<FTabManager> InTabManager)
 	RVNEditorPtr->PushTabFactories(BlueprintEditorOnlyTabFactories);
 	RVNEditorPtr->PushTabFactories(BlueprintEditorTabFactories);
 
+	#if !UE_APPLICATION_MODE_REGISTER_TAB_FACTORIES_PRIVATE
 	FApplicationMode::RegisterTabFactories(InTabManager);
+	#endif
 }
 
 void FRVNEventMode::PostActivateMode()
@@ -298,7 +303,9 @@ void FRVNBlackboardEditorApplicationMode::RegisterTabFactories(TSharedPtr<FTabMa
 
 	RVNEditorPtr->PushTabFactories(BlackboardTabFactories);
 
+	#if !UE_APPLICATION_MODE_REGISTER_TAB_FACTORIES_PRIVATE
 	FApplicationMode::RegisterTabFactories(InTabManager);
+	#endif
 }
 
 void FRVNBlackboardEditorApplicationMode::PostActivateMode()

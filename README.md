@@ -9,7 +9,7 @@ RVisualNarrative 是一款为虚幻引擎(Unreal Engine)开发的跨版本对话
 
 ## 支持版本
 
-- 支持 Unreal Engine 5.0 到 5.5 版本
+- 支持 Unreal Engine 5.0 到 5.8 版本
 
 ## 特性
 

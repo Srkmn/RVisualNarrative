@@ -62,7 +62,9 @@ void SRVNTaskWidget::UpdateGraphNode()
 	const FLinearColor NodeBorderColor(0.6f, 0.1f, 0.1f, 1.0f);
 	const FLinearColor NodeTitleColor(0.8f, 0.15f, 0.15f, 1.0f);
 
+	#if !UE_S_NODE_CONTENT_SCALE_DEPRECATED
 	ContentScale.Bind(this, &SGraphNode::GetContentScale);
+	#endif
 
 	LeftNodeBox = SNew(SVerticalBox);
 	RightNodeBox = SNew(SVerticalBox);
@@ -235,7 +237,11 @@ void SRVNTaskWidget::AddPin(const TSharedRef<SGraphPin>& PinToAdd)
 
 void SRVNTaskWidget::MoveTo(const FVector2D& NewPosition, FNodeSet& NodeFilter, bool bMarkDirty)
 {
+	#if UE_S_GRAPH_NODE_MOVE_TO_FLOAT
+	SGraphNode::MoveTo(FVector2f(NewPosition), NodeFilter, bMarkDirty);
+	#else
 	SGraphNode::MoveTo(NewPosition, NodeFilter, bMarkDirty);
+	#endif
 
 	OwnerTaskNodePtr->RequestUpdateExecutionOrder();
 }
