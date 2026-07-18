@@ -20,6 +20,7 @@
 #include "Graph/Node/RVNDecoratorItemFactory.h"
 #include "Graph/Node/Slate/InternalWidget/SRVNConditionItemWidget.h"
 #include "Graph/Node/Slate/InternalWidget/SRVNTaskItemWidget.h"
+#include "UEVersion.h"
 
 #define LOCTEXT_NAMESPACE "FRVisualNarrativeEditorModule"
 
@@ -46,7 +47,11 @@ void FRVisualNarrativeEditorModule::StartupModule()
 
 	RVNBlueprintToolBar = MakeShared<FRVNBlueprintToolBar>();
 
+	#if UE_CORE_DELEGATES_GET_ON_POST_ENGINE_INIT
+	OnPostEngineInitDelegateHandle = FCoreDelegates::GetOnPostEngineInit().AddRaw(
+	#else
 	OnPostEngineInitDelegateHandle = FCoreDelegates::OnPostEngineInit.AddRaw(
+	#endif
 		this, &FRVisualNarrativeEditorModule::OnPostEngineInit);
 
 	RegisterRVNAsset();
@@ -61,7 +66,11 @@ void FRVisualNarrativeEditorModule::ShutdownModule()
 {
 	FEdGraphUtilities::UnregisterVisualNodeFactory(MakeShared<FRVNGraphNodeFactory>());
 
+	#if UE_CORE_DELEGATES_GET_ON_POST_ENGINE_INIT
+	FCoreDelegates::GetOnPostEngineInit().Remove(OnPostEngineInitDelegateHandle);
+	#else
 	FCoreDelegates::OnPostEngineInit.Remove(OnPostEngineInitDelegateHandle);
+	#endif
 
 	URVisualNarrativeEditorSetting::UnregisterSettings();
 }

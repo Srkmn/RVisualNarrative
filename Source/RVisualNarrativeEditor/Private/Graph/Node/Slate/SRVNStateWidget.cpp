@@ -95,7 +95,9 @@ void SRVNStateWidget::UpdateGraphNode()
 	InputPins.Empty();
 	OutputPins.Empty();
 
+	#if !UE_S_NODE_CONTENT_SCALE_DEPRECATED
 	ContentScale.Bind(this, &SGraphNode::GetContentScale);
+	#endif
 
 	NodeIndexOverlay = SNew(SRVNNodeIndex, StateNode->GetNodeId());
 
@@ -228,7 +230,11 @@ TArray<FOverlayWidgetInfo> SRVNStateWidget::GetOverlayWidgets(bool bSelected, co
 
 void SRVNStateWidget::MoveTo(const FVector2D& NewPosition, FNodeSet& NodeFilter, bool bMarkDirty)
 {
+	#if UE_S_GRAPH_NODE_MOVE_TO_FLOAT
+	SGraphNode::MoveTo(FVector2f(NewPosition), NodeFilter, bMarkDirty);
+	#else
 	SGraphNode::MoveTo(NewPosition, NodeFilter, bMarkDirty);
+	#endif
 
 	StateNode->OnPositionChanged();
 }
